@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">SprytneBloczki</string>
+    <string name="splash_activity">Sprytne Bloczki</string>
+    <string name="run">Uruchom </string>
+    <string name="options">Opcje</string>
+    <string name="code">Kod</string>
+    <string name="newFile">Nowy Plik</string>
+    <string name="saveFile">Zapisz Plik</string>
+    <string name="readFile">Wczytaj Plik</string>
+    <string name="export">Eksport do PDF</string>
+
+
+</resources>
