@@ -8,6 +8,12 @@
     <string name="saveFile">Zapisz Plik</string>
     <string name="readFile">Wczytaj Plik</string>
     <string name="export">Eksport do PDF</string>
+    <string name="start">Bloczek Start</string>
+    <string name="end">Bloczek Koniec</string>
+    <string name="operation">Bloczek Operacji</string>
+    <string name="ifBloc">Bloczek Warunkowy</string>
+    <string name="input">Bloczek Wejścia/Wyjścia</string>
+    <string name="instruction">Kiliknij bloczek z menu poniżej</string>
 
 
 </resources>
