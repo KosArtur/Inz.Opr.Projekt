@@ -9,6 +9,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +29,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ifBloc : ImageView
     private lateinit var inputBloc : ImageView
     private lateinit var instruction: TextView
+    private lateinit var linia: TextView
+    private lateinit var rootLayout: FrameLayout
+    private val selectedBlocks = mutableListOf<FrameLayout>()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,15 +44,14 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-
-
-
+        rootLayout = findViewById(R.id.root)
         startBloc=findViewById(R.id.start)
         endBloc=findViewById(R.id.koniec)
         operationBloc=findViewById(R.id.operacja)
         ifBloc=findViewById(R.id.warunek)
         inputBloc=findViewById(R.id.io)
         instruction=findViewById(R.id.instruction)
+        linia=findViewById(R.id.linia)
 
         startBloc.setOnClickListener{
            addBloc("start")
@@ -65,6 +68,38 @@ class MainActivity : AppCompatActivity() {
         }
         inputBloc.setOnClickListener{
             addBloc("input")
+        }
+        linia.setOnClickListener{
+            if (selectedBlocks.size == 2) {
+                val block1 = selectedBlocks[0]
+                val block2 = selectedBlocks[1]
+
+                val line= LineView(this)
+                rootLayout.addView(line)
+
+                line.setLinePoints(
+                    block1.x + block1.width / 2,
+                    block1.y + block1.height / 6*5,
+                    block2.x + block2.width / 2,
+                    block2.y + block2.height / 6
+                )
+
+
+                val draggable = DraggableBloc().apply {
+                    setIcon1(block1)
+                    setIcon2(block2)
+                    setLine(line)
+                }
+
+                block1.setOnTouchListener(draggable)
+                block2.setOnTouchListener(draggable)
+
+                selectedBlocks.clear()
+                block1.setBackgroundColor(Color.TRANSPARENT)
+                block2.setBackgroundColor(Color.TRANSPARENT)
+            } else {
+                Toast.makeText(this, "Please select exactly two blocks!", Toast.LENGTH_SHORT).show()
+            }
         }
 
 
@@ -122,24 +157,11 @@ class MainActivity : AppCompatActivity() {
                 else -> R.drawable.start
             }
             setImageResource(imageResource)
-            if(type=="start" || type=="koniec"){
-                layoutParams = FrameLayout.LayoutParams(300, 300).apply {
 
-                    leftMargin = 100
-                    topMargin = 100
-                }
-            } else{
                 layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-
                     gravity=Gravity.CENTER
-                }
             }
         }
-
-        if(type=="start" || type=="koniec"){
-            rootLayout.addView(icon)
-            icon.setOnTouchListener(DraggableItem())
-        } else{
 
             val editText = EditText(this).apply {
                 hint = "Type..."
@@ -149,7 +171,6 @@ class MainActivity : AppCompatActivity() {
                 textSize = 16f
             }
 
-
             val iconWithText = FrameLayout(this).apply {
                 layoutParams = FrameLayout.LayoutParams(360 , if(type == "warunek") 360 else 140).apply {
                     leftMargin =400
@@ -157,10 +178,28 @@ class MainActivity : AppCompatActivity() {
                 }
 
             }
+
             iconWithText.addView(icon)
-            iconWithText.addView(editText)
+            if(type!="start" && type!="koniec") {
+                iconWithText.addView(editText)
+            }
             rootLayout.addView(iconWithText)
             iconWithText.setOnTouchListener(DraggableItem())
+
+            iconWithText.setOnClickListener{
+                selectBlock(iconWithText)
+            }
+    }
+
+    private fun selectBlock(block: FrameLayout){
+        if (selectedBlocks.contains(block)) {
+            selectedBlocks.remove(block)
+            block.setBackgroundColor(Color.TRANSPARENT)
+        } else {
+            if (selectedBlocks.size < 2) {
+                selectedBlocks.add(block)
+                block.setBackgroundColor(Color.LTGRAY)
+            }
         }
     }
 }
