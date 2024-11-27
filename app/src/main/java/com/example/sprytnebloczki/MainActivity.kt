@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var instruction: TextView
     private lateinit var linia: TextView
     private lateinit var rootLayout: FrameLayout
-    private val selectedBlocks = mutableListOf<FrameLayout>()
+    private val selectedBlocks = mutableListOf<Block>()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,33 +70,40 @@ class MainActivity : AppCompatActivity() {
             addBloc("input")
         }
         linia.setOnClickListener{
+
             if (selectedBlocks.size == 2) {
                 val block1 = selectedBlocks[0]
                 val block2 = selectedBlocks[1]
 
                 val line= LineView(this)
                 rootLayout.addView(line)
+                block1.addLine(line)
+                block2.addLine(line)
+                line.setStartBlock(block1)
 
                 line.setLinePoints(
-                    block1.x + block1.width / 2,
-                    block1.y + block1.height / 6*5,
-                    block2.x + block2.width / 2,
-                    block2.y + block2.height / 6
+                    block1.getImage().x + block1.getImage().width / 2,
+                    block1.getImage().y + block1.getImage().height / 6*5,
+                    block2.getImage().x + block2.getImage().width / 2,
+                    block2.getImage().y + block2.getImage().height / 6
                 )
 
 
-                val draggable = DraggableBloc().apply {
-                    setIcon1(block1)
-                    setIcon2(block2)
+                val draggable1 = DraggableBloc().apply {
+                    setBlock(block1)
+                    setLine(line)
+                }
+                val draggable2 = DraggableBloc().apply {
+                    setBlock(block2)
                     setLine(line)
                 }
 
-                block1.setOnTouchListener(draggable)
-                block2.setOnTouchListener(draggable)
+                block1.getImage().setOnTouchListener(draggable1)
+                block2.getImage().setOnTouchListener(draggable2)
 
                 selectedBlocks.clear()
-                block1.setBackgroundColor(Color.TRANSPARENT)
-                block2.setBackgroundColor(Color.TRANSPARENT)
+                block1.getImage().setBackgroundColor(Color.TRANSPARENT)
+                block2.getImage().setBackgroundColor(Color.TRANSPARENT)
             } else {
                 Toast.makeText(this, "Please select exactly two blocks!", Toast.LENGTH_SHORT).show()
             }
@@ -183,22 +190,25 @@ class MainActivity : AppCompatActivity() {
             if(type!="start" && type!="koniec") {
                 iconWithText.addView(editText)
             }
-            rootLayout.addView(iconWithText)
-            iconWithText.setOnTouchListener(DraggableItem())
+            val block=Block(iconWithText)
+            rootLayout.addView(block.getImage())
 
-            iconWithText.setOnClickListener{
-                selectBlock(iconWithText)
+            block.getImage().setOnTouchListener(DraggableItem())
+
+            block.getImage().setOnClickListener{
+                selectBlock(block)
             }
+
     }
 
-    private fun selectBlock(block: FrameLayout){
+    private fun selectBlock(block: Block){
         if (selectedBlocks.contains(block)) {
             selectedBlocks.remove(block)
-            block.setBackgroundColor(Color.TRANSPARENT)
+            block.getImage().setBackgroundColor(Color.TRANSPARENT)
         } else {
             if (selectedBlocks.size < 2) {
                 selectedBlocks.add(block)
-                block.setBackgroundColor(Color.LTGRAY)
+                block.getImage().setBackgroundColor(Color.LTGRAY)
             }
         }
     }

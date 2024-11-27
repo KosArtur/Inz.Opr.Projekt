@@ -2,21 +2,17 @@ package com.example.sprytnebloczki
 
 import android.view.MotionEvent
 import android.view.View
-import android.widget.FrameLayout
 
 class DraggableBloc: DraggableItem() {
-    private lateinit var icon1: FrameLayout
-    private lateinit var icon2: FrameLayout
+    private lateinit var block: Block
     private lateinit var line: LineView
     private var dX = 0f
     private var dY = 0f
 
-    fun setIcon1(icon: FrameLayout){
-        this.icon1=icon
+    fun setBlock(block: Block){
+        this.block=block
     }
-    fun setIcon2(icon: FrameLayout){
-        this.icon2=icon
-    }
+
     fun setLine(l:LineView){
         this.line=l
     }
@@ -36,12 +32,23 @@ class DraggableBloc: DraggableItem() {
                     .setDuration(0)
                     .start()
 
-                line.setLinePoints(
-                    icon1.x + icon1.width/2,
-                    icon1.y + icon1.height/6*5,
-                    icon2.x + icon2.width / 2,
-                    icon2.y + icon2.height /6
-                )
+
+                for(line in block.connectedLines)
+                {
+                    if(line.startBloc==block)
+                    {
+                        line.setLinePoints(
+                            block.getImage().x + block.getImage().width/2,
+                            block.getImage().y + block.getImage().height/6*5
+                        )
+                    }
+                    else{
+                        line.setLinePoints(
+                            endX=block.getImage().x + block.getImage().width/2,
+                            endY=block.getImage().y + block.getImage().height/6
+                        )
+                    }
+                }
             }
             MotionEvent.ACTION_UP->{
                 view.performClick()
