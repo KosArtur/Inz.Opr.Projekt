@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">SprytneBloczki</string>
+    <string name="splash_activity">Sprytne Bloczki</string>
+    <string name="run">Uruchom </string>
+    <string name="options">Opcje</string>
+    <string name="code">Kod</string>
+    <string name="newFile">Nowy Plik</string>
+    <string name="saveFile">Zapisz Plik</string>
+    <string name="readFile">Wczytaj Plik</string>
+    <string name="export">Eksport do PDF</string>
+    <string name="start">Bloczek Start</string>
+    <string name="end">Bloczek Koniec</string>
+    <string name="operation">Bloczek Operacji</string>
+    <string name="ifBloc">Bloczek Warunkowy</string>
+    <string name="input">Bloczek Wejścia/Wyjścia</string>
+    <string name="instruction">Kiliknij bloczek z menu poniżej</string>
+    <string name="linia">Linia</string>
+
+
+</resources>
