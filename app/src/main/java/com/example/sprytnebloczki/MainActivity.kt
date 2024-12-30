@@ -3,6 +3,7 @@ package com.example.sprytnebloczki
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log // Do testów
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -32,6 +33,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linia: TextView
     private lateinit var rootLayout: FrameLayout
     private val selectedBlocks = mutableListOf<Block>()
+    private val activeBlocks = mutableListOf<Block>() // od tąd są nowe zmienne
+    private lateinit var usun: TextView
+    private var start = false
+    private var stop = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +76,7 @@ class MainActivity : AppCompatActivity() {
         }
         linia.setOnClickListener{
 
-            if (selectedBlocks.size == 2) {
+            if (selectedBlocks.size == 2) { // Zaznaczanie dwóch bloczków pod linię
                 val block1 = selectedBlocks[0]
                 val block2 = selectedBlocks[1]
 
@@ -149,6 +154,32 @@ class MainActivity : AppCompatActivity() {
 
         }
 
+        usun=findViewById(R.id.usun)// to też dodałem
+
+        usun.setOnClickListener{
+            if(selectedBlocks.size>0) {
+                for (i in selectedBlocks) {
+                    for (j in i.getLine()) {
+                        rootLayout.removeView(j)
+                    }
+
+                    if(i.getType()=="start"){//czy usuwany bloczek to start lub stop
+                        start=false
+                    }
+                    if(i.getType()=="koniec"){
+                        stop=false
+                    }
+
+                    rootLayout.removeView(i.getImage()) // Usunięcie z widoku
+                    activeBlocks.remove(i) // Usunięcie z listy
+                }
+                selectedBlocks.clear()
+            }
+            else{
+                Toast.makeText(this, "Wpierw zaznacz bloczek do usunięcia!", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -168,37 +199,56 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                     gravity=Gravity.CENTER
             }
+
+
         }
+        if((stop==true && type=="koniec")||(start==true && type=="start")){
+            Toast.makeText(this, "Może istnieć tylko jeden bloczek start i stop!", Toast.LENGTH_SHORT).show()
+        }
+        else {
+
+            if(type=="start"){
+                start=true
+            }
+            if(type=="koniec"){
+                stop=true
+            }
 
             val editText = EditText(this).apply {
                 hint = "Type..."
-                layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
                     gravity = Gravity.CENTER
                 }
                 textSize = 16f
             }
 
             val iconWithText = FrameLayout(this).apply {
-                layoutParams = FrameLayout.LayoutParams(360 , if(type == "warunek") 360 else 140).apply {
-                    leftMargin =400
-                    topMargin = 400
-                }
+                layoutParams =
+                    FrameLayout.LayoutParams(360, if (type == "warunek") 360 else 140).apply {
+                        leftMargin = 400
+                        topMargin = 400
+                    }
 
             }
 
             iconWithText.addView(icon)
-            if(type!="start" && type!="koniec") {
+            if (type != "start" && type != "koniec") {
                 iconWithText.addView(editText)
             }
-            val block=Block(iconWithText)
-            rootLayout.addView(block.getImage())
+            val block = Block(iconWithText, type)
+            rootLayout.addView(block.getImage())// Dodanie bloku do widoku
+            activeBlocks.add(block) // Dodanie bloku do listy                                           to też
 
             block.getImage().setOnTouchListener(DraggableItem())
 
-            block.getImage().setOnClickListener{
+
+            block.getImage().setOnClickListener {
                 selectBlock(block)
             }
-
+        }
     }
 
     private fun selectBlock(block: Block){
