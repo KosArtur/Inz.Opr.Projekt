@@ -17,6 +17,7 @@ class Block(private val image:FrameLayout) {
     fun getId(): Int {
         return this.id
     }
+
     fun getImage(): FrameLayout {
         return this.image
     }
