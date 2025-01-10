@@ -6,5 +6,7 @@
     <color name="menu">#cadefc</color>
     <color name="buttons">#222831</color>
     <color name="orange">#ffc93c</color>
+    <color name="dialogBackground">#8dc6ff</color>
+    <color name="spinnerBackground">#c3bef0</color>
 
 </resources>

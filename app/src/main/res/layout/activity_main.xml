@@ -17,8 +17,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -96,8 +94,16 @@
             android:layout_marginTop="600dp"
             android:layout_marginStart="345dp"/>
 
-
-
+        <TextView
+            android:id="@+id/usun"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Usuń"
+            android:textSize="18sp"
+            android:padding="5dp"
+            android:background="@color/orange"
+            android:layout_marginTop="600dp"
+            android:layout_marginStart="25dp"/>
     </FrameLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -108,28 +114,14 @@
         app:layout_constraintBottom_toBottomOf="parent"
         tools:layout_editor_absoluteX="0dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="25dp"
-            android:text="@string/start"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="150dp"
-            android:text="@string/end"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="280dp"
+            android:layout_marginTop="53dp"
+            android:layout_marginEnd="15dp"
             android:text="@string/operation"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
 
@@ -137,37 +129,39 @@
             android:id="@+id/linearLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
             app:layout_constraintTop_toTopOf="parent"
-            tools:layout_editor_absoluteX="5dp">
+            android:weightSum="3">
 
             <ImageView
                 android:id="@+id/start"
-                android:layout_width="130dp"
-                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="62dp"
                 android:contentDescription="@string/start"
                 android:src="@drawable/start" />
 
             <ImageView
                 android:id="@+id/koniec"
-                android:layout_width="130dp"
-                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="62dp"
                 android:contentDescription="@string/end"
                 android:src="@drawable/koniec" />
 
             <ImageView
                 android:id="@+id/operacja"
-                android:layout_width="130dp"
-                android:layout_height="50dp"
-                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="62dp"
                 android:contentDescription="@string/operation"
                 android:src="@drawable/operacja" />
+
         </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="25dp"
+            android:layout_marginStart="40dp"
             android:layout_marginTop="127dp"
             android:text="@string/input"
             app:layout_constraintStart_toStartOf="parent"
@@ -187,26 +181,31 @@
             android:id="@+id/linearLayout2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="40dp"
+            android:layout_marginStart="60dp"
             android:layout_marginBottom="10dp"
+            android:weightSum="3"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent">
 
             <ImageView
                 android:id="@+id/io"
-                android:layout_width="149dp"
-                android:layout_height="60dp"
-                android:layout_marginEnd="20dp"
+                android:layout_width="0dp"
+                android:layout_height="62dp"
+                android:layout_weight="1"
                 android:contentDescription="@string/input"
-                android:src="@drawable/input" />
-
+                android:src="@drawable/input"
+                android:layout_marginEnd="40dp"/>
 
             <ImageView
                 android:id="@+id/warunek"
-                android:layout_width="151dp"
-                android:layout_height="65dp"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_weight="1"
+
+                android:baseline="@dimen/cardview_compat_inset_shadow"
                 android:contentDescription="@string/ifBloc"
                 android:src="@drawable/warunek" />
+
 
         </LinearLayout>
 
