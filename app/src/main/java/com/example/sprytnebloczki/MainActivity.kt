@@ -44,7 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var usun: TextView
     private var start = false
     private var stop = false
-    private val inputMap: MutableMap<String, Double?> = mutableMapOf()
+    private val inputMapNumber: MutableMap<String, Double?> = mutableMapOf()
+    private val inputMapString: MutableMap<String, String?> = mutableMapOf()
+    private val inputMapTabString: MutableMap<String, List<String>? > = mutableMapOf()
+    private val inputMapTabNumber: MutableMap<String, List<Double>? > = mutableMapOf()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -144,12 +147,29 @@ class MainActivity : AppCompatActivity() {
                         block.getImage().setBackgroundColor(Color.GREEN)
                         delay(3000)
                         if(block.getType()=="input"){
-                            val values = block.getUserInput()?.split(",")
-                            if(block.getAction()=="Read" && values!!.isNotEmpty()){
+                            val inputBlock = block as? InputBlock
+                            val values = inputBlock?.getUserInput()?.split(",")
+                            if(inputBlock?.getAction()=="Read" && values!!.isNotEmpty()){
                                 //show dialog do wprowadzania
                                 for(el in values){
-                                    val userInput  = showInputDialog(el)?.toDouble()
-                                    inputMap[el] = userInput
+                                    val userInput  = showInputDialog(el, inputBlock)
+                                    if(inputBlock.getInputTYpe()=="Number"){
+                                        inputMapNumber[el] = userInput?.toDouble()
+                                    }
+                                    else if(inputBlock.getInputTYpe()=="String")
+                                    {
+                                        inputMapString[el] = userInput
+                                    }
+                                    else {
+                                        val temp =  userInput?.split(",")
+                                        if(inputBlock.getInputTYpe()=="Array Number")
+                                        {
+                                            inputMapTabNumber[el] = temp?.map { e -> e.toDouble() }
+                                        }
+                                        else if(inputBlock.getInputTYpe()=="Array String"){
+                                            inputMapTabString[el] = temp
+                                        }
+                                    }
                                 }
                             }
                             else{
@@ -288,8 +308,6 @@ class MainActivity : AppCompatActivity() {
 
             iconWithText.addView(icon)
 
-            var block:Block
-
             if(type=="input"){
                 var action: String
                 var userInput: String
@@ -312,7 +330,7 @@ class MainActivity : AppCompatActivity() {
                 val dialog = builder.create()
 
                 submitButton.setOnClickListener {
-                    userInput = userInputField.text.toString()
+                    userInput = userInputField.text.toString() //wymagane wpisanie w formacie a,b,c,d
                     action = spinner.selectedItem.toString()
                     if(userInput==""){
                         Toast.makeText(this,"Puste pole!",Toast.LENGTH_LONG).show()
@@ -329,13 +347,13 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         iconWithText.addView(values)
-                        block = Block(iconWithText, type, editText.id, action, userInput)
-                        rootLayout.addView(block.getImage())// Dodanie bloku do widoku
-                        activeBlocks.add(block)
-                        block.getImage().setOnTouchListener(DraggableItem())
+                        val bloc = InputBlock(iconWithText, type, editText.id, action, userInput)
+                        rootLayout.addView(bloc.getImage())// Dodanie bloku do widoku
+                        activeBlocks.add(bloc)
+                        bloc.getImage().setOnTouchListener(DraggableItem())
 
-                        block.getImage().setOnClickListener {
-                            selectBlock(block)
+                        bloc.getImage().setOnClickListener {
+                            selectBlock(bloc)
                         }
                     }
 
@@ -346,7 +364,7 @@ class MainActivity : AppCompatActivity() {
                 if (type != "start" && type != "koniec") {
                     iconWithText.addView(editText)
                 }
-                block = Block(iconWithText, type, editText.id)
+                val block = Block(iconWithText, type, editText.id)
 
                 rootLayout.addView(block.getImage())// Dodanie bloku do widoku
                 activeBlocks.add(block)
@@ -372,10 +390,16 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private suspend fun showInputDialog(zmienna: String): String? = suspendCancellableCoroutine { continuation ->
+    private suspend fun showInputDialog(zmienna: String, block: InputBlock): String? = suspendCancellableCoroutine { continuation ->
         val builder = AlertDialog.Builder(this)
         val inflater = LayoutInflater.from(this)
         val dialogLayout = inflater.inflate(R.layout.input_dialog, null)
+
+        val spinner = dialogLayout.findViewById<Spinner>(R.id.spinnerOptions)
+        val options = listOf("Number", "String", "Array Number", "Array String")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
 
         val editText = dialogLayout.findViewById<EditText>(R.id.values)
         dialogLayout.findViewById<TextView>(R.id.zmienna).text = zmienna
@@ -387,7 +411,10 @@ class MainActivity : AppCompatActivity() {
         val dialog = builder.create()
 
         submitButton.setOnClickListener {
+            val type = spinner.selectedItem.toString()
             val userInput = editText.text.toString()
+            block.setInputType(type)
+
             if(userInput==""){
                 Toast.makeText(this,"Puste pole!",Toast.LENGTH_LONG).show()
             }
@@ -418,7 +445,25 @@ class MainActivity : AppCompatActivity() {
         var output = ""
         if(values!!.isNotEmpty()){
             for(el in values){
-                output+="$el = ${inputMap[el]}\n"
+                if(el in inputMapNumber)
+                {
+                    output+="$el = ${inputMapNumber[el]}\n"
+                }
+                else if(el in inputMapString)
+                {
+                    output+="$el = ${inputMapString[el]}\n"
+                }
+                else if(el in inputMapTabNumber){
+                    output+="$el = ${inputMapTabNumber[el]}\n"
+                }
+                else if(el in inputMapTabString)
+                {
+                    output+="$el = ${inputMapTabString[el]}\n"
+                }
+                else{
+                    Toast.makeText(this, "Niezdefiniowana zmienna: $el", Toast.LENGTH_LONG).show()
+                }
+
             }
         }
 
