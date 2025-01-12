@@ -20,9 +20,14 @@ class LineView(context: Context, attrs: AttributeSet? = null) : View(context, at
     private var endY: Float = 0f
     private var id: Int=0
     lateinit var startBloc: Block
+    lateinit var endBloc: Block
 
     fun setStartBlock(block:Block){
         this.startBloc=block
+    }
+
+    fun setEndBlock(block:Block){
+        this.endBloc = block
     }
 
     companion object {

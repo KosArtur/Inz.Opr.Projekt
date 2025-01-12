@@ -8,5 +8,8 @@
     <color name="orange">#ffc93c</color>
     <color name="dialogBackground">#8dc6ff</color>
     <color name="spinnerBackground">#c3bef0</color>
+    <color name="spinnerSmall">#ffebbb</color>
+    <color name="ifDialog">#ffbd67</color>
+    <color name="operationDialog">#7dd87d</color>
 
 </resources>

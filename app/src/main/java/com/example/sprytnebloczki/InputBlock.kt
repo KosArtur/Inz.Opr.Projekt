@@ -2,8 +2,8 @@ package com.example.sprytnebloczki
 
 import android.widget.FrameLayout
 
-class InputBlock(image: FrameLayout, type:String, fieldId: Int=0, private val action: String, private val values: String):
-    Block(image, type, fieldId) {
+class InputBlock(image: FrameLayout, type:String, private val action: String, private val values: String):
+    Block(image, type) {
         private var inputType: String = ""
     fun getAction():String{
         return this.action
