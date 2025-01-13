@@ -9,6 +9,24 @@ class IfBlock(image: FrameLayout, type:String):
     private  var secondValue: String = ""
     private lateinit var lineTrue: LineView
     private lateinit var lineFalse: LineView
+    private var blockTrue:Block? = null
+    private var blockFalse: Block? = null
+
+    fun setBlockTrue(block: Block){
+        this.blockTrue=block
+    }
+
+    fun setBlockFalse(block: Block){
+        this.blockFalse=block
+    }
+
+    fun getBlockTrue(): Block?{
+        return this.blockTrue
+    }
+
+    fun getBlockFalse(): Block?{
+        return this.blockFalse
+    }
 
     fun setAction(action: String){
         this.action = action

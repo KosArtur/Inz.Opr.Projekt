@@ -8,11 +8,13 @@ import android.util.AttributeSet
 import android.view.View
 
 class LineView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+
     private val paint = Paint().apply {
         color = Color.BLACK
         strokeWidth = 5f
         style = Paint.Style.STROKE
     }
+
 
     private var startX: Float = 0f
     private var startY: Float = 0f
@@ -21,6 +23,14 @@ class LineView(context: Context, attrs: AttributeSet? = null) : View(context, at
     private var id: Int=0
     lateinit var startBloc: Block
     lateinit var endBloc: Block
+
+    fun colorRed(){
+        paint.color = Color.RED
+    }
+
+    fun colorGreen(){
+        paint.color = Color.GREEN
+    }
 
     fun setStartBlock(block:Block){
         this.startBloc=block
