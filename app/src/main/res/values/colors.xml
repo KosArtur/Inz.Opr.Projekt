@@ -11,5 +11,6 @@
     <color name="spinnerSmall">#ffebbb</color>
     <color name="ifDialog">#ffbd67</color>
     <color name="operationDialog">#7dd87d</color>
+    <color name="pdfDialog">#b8f7d4</color>
 
 </resources>
