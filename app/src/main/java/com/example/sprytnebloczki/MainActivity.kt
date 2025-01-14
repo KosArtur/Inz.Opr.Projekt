@@ -237,7 +237,8 @@ class MainActivity : AppCompatActivity() {
                                 showOutputDialog(values)
                             }
 
-                        } else if (block.getType() == "operacja") {
+                        }
+                        else if (block.getType() == "operacja") {
                             val operationBlock = block as OperationBlock
                             val value1 = operationBlock.getFirstValue() //zawsze string
                             val value2 = operationBlock.getSecondValue()
@@ -401,7 +402,8 @@ class MainActivity : AppCompatActivity() {
                             }
                             showAll()
 
-                        } else if (block.getType() == "warunek") {
+                        }
+                        else if (block.getType() == "warunek") {
                             val ifBlock = block as IfBlock
 
                         }
@@ -673,7 +675,21 @@ class MainActivity : AppCompatActivity() {
 
                 if (userInput == "") {
                     Toast.makeText(this, "Puste pole!", Toast.LENGTH_LONG).show()
-                } else {
+                } else if(userInput.toDoubleOrNull() == null && spinner.selectedItem =="Number"){
+                    Toast.makeText(this, "Nieprawidłowe wartości!", Toast.LENGTH_LONG).show()
+                } else if(spinner.selectedItem =="Array Number"){
+                    val input = userInput.split(",")
+                    val numbers = input.mapNotNull { it.toDoubleOrNull() }
+                    if (numbers.size != input.size) {
+                        Toast.makeText(this, "Nieprawidłowe wartości: ${input.filter { it.toDoubleOrNull() == null }}", Toast.LENGTH_LONG).show()
+                    } else {
+                        if (continuation.isActive) {
+                            continuation.resume(userInput)
+                        }
+                        dialog.dismiss()
+                    }
+                }
+                else {
                     if (continuation.isActive) {
                         continuation.resume(userInput) // Wznowienie korutyny z wprowadzonym tekstem
                     }
