@@ -222,9 +222,9 @@ class MainActivity : AppCompatActivity() {
                         block.getImage().setBackgroundColor(Color.GREEN)
                         delay(3000)
                         if (block.getType() == "input") {
-                            val inputBlock = block as? InputBlock
-                            val values = inputBlock?.getUserInput()?.split(",")
-                            if (inputBlock?.getAction() == "Read" && values!!.isNotEmpty()) {
+                            val inputBlock = block as InputBlock
+                            val values = inputBlock.getUserInput().split(",")
+                            if (inputBlock.getAction() == "Read" && values.isNotEmpty()) {
                                 //show dialog do wprowadzania
                                 for (el in values) {
                                     val userInput = showInputDialog(el, inputBlock)
@@ -246,14 +246,82 @@ class MainActivity : AppCompatActivity() {
                                 showOutputDialog(values)
                             }
 
-                        } else if (block.getType() == "operation") {
-                            val operationBlock = block as? OperationBlock
-                            val value1 = operationBlock?.getFirstValue()
-                            val value2 = operationBlock?.getSecondValue()
-                            val value3 = operationBlock?.getThirdValue()
+                        } else if (block.getType() == "operacja") {
+                            val operationBlock = block as OperationBlock
+                            val value1 = operationBlock.getFirstValue() //zawsze string
+                            val value2 = operationBlock.getSecondValue()
+                            val value3 = operationBlock.getThirdValue()
+                            val action = operationBlock.getAction()
+
+                            if(action != null)
+                            {
+                                val n2 = value2.toDoubleOrNull()
+                                val n3 = value3!!.toDoubleOrNull()
+                                println(n2)
+                                println(n3)
+
+                                if(n2 != null && n3!=null){
+                                    when(action){
+                                        "+" -> { inputMapNumber[value1] = n2 + n3 }
+                                        "-" -> { inputMapNumber[value1] = n2 - n3 }
+                                        "*" -> { inputMapNumber[value1] = n2 * n3 }
+                                        "/" -> { inputMapNumber[value1] = n2 / n3 }
+                                        "%" -> { inputMapNumber[value1] = n2 % n3 }
+                                        "**" -> { inputMapNumber[value1] = Math.pow(n2, n3) }
+                                    }
+                                }
+                                else{
+                                    if(value2 in inputMapNumber) {
+                                        if (value3 in inputMapNumber) {
+                                            when (action) {
+                                                "+" -> { inputMapNumber[value1] = inputMapNumber[value2]?.plus(inputMapNumber[value3]!!) }
+                                                "-" -> { inputMapNumber[value1] = inputMapNumber[value2]?.minus(inputMapNumber[value3]!!) }
+                                                "*" -> { inputMapNumber[value1] = inputMapNumber[value2]!! * inputMapNumber[value3]!! }
+                                                "/" -> { inputMapNumber[value1] = inputMapNumber[value2]!! / inputMapNumber[value3]!! }
+                                                "%" -> { inputMapNumber[value1] = inputMapNumber[value2]!! % inputMapNumber[value3]!! }
+                                                "**" -> { inputMapNumber[value1] = Math.pow(inputMapNumber[value2]!!, inputMapNumber[value3]!!) }
+                                            }
+                                        }
+                                    }
+                                    else{
+                                        when(action){
+                                            "+" -> {
+                                                if (value2 in inputMapNumber) {
+                                                    inputMapString[value1] = inputMapNumber[value2].toString() + inputMapString[value3]
+                                                }
+                                                else if (value2 in inputMapString) {
+                                                    if (value3 in inputMapNumber) {
+                                                        inputMapString[value1] = inputMapString[value2] + inputMapNumber[value3].toString()
+                                                    } else {
+                                                        inputMapString[value1] = inputMapString[value2] + inputMapString[value3]
+                                                    }
+                                                } else{
+                                                    inputMapString[value1] = value2 + value3
+                                                }
+                                            }
+                                            else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
+                                        }
+                                        }
+                                }
+                            }
+                            else{
+                                val number2 = value2.toDoubleOrNull()
+                                if(number2 != null){
+                                    inputMapNumber[value1] = number2
+                                } else{
+                                    if(value2 in inputMapNumber){
+                                        inputMapNumber[value1] = inputMapNumber[value2]
+                                    } else if(value2 in inputMapString){
+                                        inputMapString[value1] = inputMapString[value2]
+                                    } else{
+                                        inputMapString[value1] = value2
+                                    }
+                                }
+                            }
+                            showAll()
 
                         } else if (block.getType() == "warunek") {
-                            val ifBlock = block as? IfBlock
+                            val ifBlock = block as IfBlock
 
                         }
                         block.getImage().setBackgroundColor(Color.TRANSPARENT)
@@ -442,37 +510,41 @@ class MainActivity : AppCompatActivity() {
                 }
                 dialog.show()
             } else {
-                if (type == "operacja") {
-                    val block = OperationBlock(iconWithText, type)
+                when (type) {
+                    "operacja" -> {
+                        val block = OperationBlock(iconWithText, type)
 
-                    rootLayout.addView(block.getImage())// Dodanie bloku do widoku
-                    activeBlocks.add(block)
-                    block.getImage().setOnTouchListener(DraggableItem())
+                        rootLayout.addView(block.getImage())// Dodanie bloku do widoku
+                        activeBlocks.add(block)
+                        block.getImage().setOnTouchListener(DraggableItem())
 
-                    block.getImage().setOnClickListener {
-                        selectBlock(block)
-                        showOperationDialog(block)
+                        block.getImage().setOnClickListener {
+                            selectBlock(block)
+                            showOperationDialog(block)
+                        }
                     }
-                } else if (type == "warunek") {
-                    val block = IfBlock(iconWithText, type)
+                    "warunek" -> {
+                        val block = IfBlock(iconWithText, type)
 
-                    rootLayout.addView(block.getImage())// Dodanie bloku do widoku
-                    activeBlocks.add(block)
-                    block.getImage().setOnTouchListener(DraggableItem())
+                        rootLayout.addView(block.getImage())// Dodanie bloku do widoku
+                        activeBlocks.add(block)
+                        block.getImage().setOnTouchListener(DraggableItem())
 
-                    block.getImage().setOnClickListener {
-                        selectBlock(block)
-                        showIfDialog(block)
+                        block.getImage().setOnClickListener {
+                            selectBlock(block)
+                            showIfDialog(block)
+                        }
                     }
-                } else {
-                    val block = Block(iconWithText, type)
+                    else -> {
+                        val block = Block(iconWithText, type)
 
-                    rootLayout.addView(block.getImage())// Dodanie bloku do widoku
-                    activeBlocks.add(block)
-                    block.getImage().setOnTouchListener(DraggableItem())
+                        rootLayout.addView(block.getImage())// Dodanie bloku do widoku
+                        activeBlocks.add(block)
+                        block.getImage().setOnTouchListener(DraggableItem())
 
-                    block.getImage().setOnClickListener {
-                        selectBlock(block)
+                        block.getImage().setOnClickListener {
+                            selectBlock(block)
+                        }
                     }
                 }
             }
@@ -595,6 +667,40 @@ class MainActivity : AppCompatActivity() {
             dialog.show()
         }
 
+    private suspend fun showAll(): String? =
+        suspendCancellableCoroutine { continuation ->
+            val builder = AlertDialog.Builder(this)
+            val inflater = LayoutInflater.from(this)
+            val dialogLayout = inflater.inflate(R.layout.show_dialog, null)
+
+            val valuesField = dialogLayout.findViewById<TextView>(R.id.values)
+            val closeButton = dialogLayout.findViewById<Button>(R.id.close_button)
+
+            var output = ""
+           for(el in inputMapNumber.entries){
+               output+= "${el.key} = ${el.value} \n"
+           }
+            for(el in inputMapString.entries){
+                output+= "${el.key} = ${el.value} \n"
+            }
+
+            valuesField.text = output
+
+            builder.setView(dialogLayout)
+            builder.setCancelable(false)
+
+            val dialog = builder.create()
+
+            closeButton.setOnClickListener {
+                if (continuation.isActive) {
+                    continuation.resume(null)
+                }
+                dialog.dismiss()
+            }
+
+            dialog.show()
+        }
+
     private fun showIfDialog(block: IfBlock) {
         val builder = AlertDialog.Builder(this)
         val inflater = layoutInflater
@@ -672,7 +778,7 @@ class MainActivity : AppCompatActivity() {
         val dismissButton = dialogLayout.findViewById<Button>(R.id.dismiss_button)
         val radioGroup = dialogLayout.findViewById<RadioGroup>(R.id.radioGroup)
         val spinner = dialogLayout.findViewById<Spinner>(R.id.spinnerOptions)
-        radioGroup.setOnCheckedChangeListener { group, checkedId ->
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.radioButton1 -> {
                     userInputField1.isEnabled = true
@@ -832,14 +938,14 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    fun getBitmapFromView(view: View): Bitmap {
+    private fun getBitmapFromView(view: View): Bitmap {
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         view.draw(canvas)
         return bitmap
     }
 
-    fun saveViewAsPdf(context: Context, view: View, fileName: String) {
+    private fun saveViewAsPdf(context: Context, view: View, fileName: String) {
         // bitmapa z widoku
         val bitmap = getBitmapFromView(view)
 

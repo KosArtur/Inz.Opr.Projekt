@@ -12,5 +12,6 @@
     <color name="ifDialog">#ffbd67</color>
     <color name="operationDialog">#7dd87d</color>
     <color name="pdfDialog">#b8f7d4</color>
+    <color name="showDialog">#ff847c</color>
 
 </resources>
