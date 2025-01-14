@@ -52,10 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var usun: TextView
     private var start = false
     private var stop = false
-    private val inputMapNumber: MutableMap<String, Double?> = mutableMapOf()
-    private val inputMapString: MutableMap<String, String?> = mutableMapOf()
-    private val inputMapTabString: MutableMap<String, List<String>?> = mutableMapOf()
-    private val inputMapTabNumber: MutableMap<String, List<Double>?> = mutableMapOf()
+    private val variableMap: MutableMap<String, Any?> = mutableMapOf()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -211,7 +208,7 @@ class MainActivity : AppCompatActivity() {
         buttonRun = findViewById(R.id.buttonRun)
 
         buttonRun.setOnClickListener {
-            println(executionSequence[executionSequence.size - 1].getType())
+            variableMap.clear()
             if (executionSequence.first()
                     .getType() != "start" || executionSequence[executionSequence.size - 1].getType() != "koniec"
             ) {
@@ -228,17 +225,11 @@ class MainActivity : AppCompatActivity() {
                                 //show dialog do wprowadzania
                                 for (el in values) {
                                     val userInput = showInputDialog(el, inputBlock)
-                                    if (inputBlock.getInputTYpe() == "Number") {
-                                        inputMapNumber[el] = userInput?.toDouble()
-                                    } else if (inputBlock.getInputTYpe() == "String") {
-                                        inputMapString[el] = userInput
-                                    } else {
-                                        val temp = userInput?.split(",")
-                                        if (inputBlock.getInputTYpe() == "Array Number") {
-                                            inputMapTabNumber[el] = temp?.map { e -> e.toDouble() }
-                                        } else if (inputBlock.getInputTYpe() == "Array String") {
-                                            inputMapTabString[el] = temp
-                                        }
+                                    when(inputBlock.getInputTYpe()){
+                                        "Number" -> {variableMap[el] = userInput?.toDouble()}
+                                        "String" -> {variableMap[el] = userInput}
+                                        "Array Number" -> {variableMap[el] = userInput?.split(",")?.map {it.toDouble()}}
+                                        "Array String" -> {variableMap[el] = userInput?.split(",")}
                                     }
                                 }
                             } else {
@@ -255,66 +246,156 @@ class MainActivity : AppCompatActivity() {
 
                             if(action != null)
                             {
-                                val n2 = value2.toDoubleOrNull()
-                                val n3 = value3!!.toDoubleOrNull()
-                                println(n2)
-                                println(n3)
+                                if(value1.contains("[")){
+                                    val index = validArray(value1)
+                                    if (index != null) {
+                                        val temp = value1.split("[", "]")
+                                        val array1 = variableMap[temp[0]] as? MutableList<Any>
+                                        val ind = temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
+                                        if (array1 != null && ind != null) {
+                                            if(value2.contains("[") && value3!!.contains("[")){
+                                                val valueAtIndex1 = validArray(value2)
+                                                val valueAtIndex2 = validArray(value3)
+                                                val t = operationVariant2(valueAtIndex1, valueAtIndex2, action)
+                                                if(t != null){
+                                                    array1[ind.toInt()] = t
+                                                }
+                                            }
+                                            else if(value2.contains("[")) {
+                                                val valueAtIndex = validArray(value2)
+                                                val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double ?: variableMap[value3] as? String ?: value3
+                                                val t = operationVariant2(valueAtIndex, x, action)
+                                                if(t != null){
+                                                    array1[ind.toInt()] = t
+                                                }
+                                            }
+                                            else if(value3!!.contains("[")){
+                                                val valueAtIndex = validArray(value3)
+                                                val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double ?: variableMap[value2] as? String ?: value2
+                                                val t = operationVariant2(x, valueAtIndex, action)
+                                                if(t != null){
+                                                    array1[ind.toInt()] = t
+                                                }
+                                            }
+                                            else{
+                                                val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
+                                                val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
 
-                                if(n2 != null && n3!=null){
-                                    when(action){
-                                        "+" -> { inputMapNumber[value1] = n2 + n3 }
-                                        "-" -> { inputMapNumber[value1] = n2 - n3 }
-                                        "*" -> { inputMapNumber[value1] = n2 * n3 }
-                                        "/" -> { inputMapNumber[value1] = n2 / n3 }
-                                        "%" -> { inputMapNumber[value1] = n2 % n3 }
-                                        "**" -> { inputMapNumber[value1] = Math.pow(n2, n3) }
+
+                                                if(n2 != null && n3!=null){
+                                                    val t = when(action){
+                                                        "+" -> { n2 + n3 }
+                                                        "-" -> { n2 - n3 }
+                                                        "*" -> { n2 * n3 }
+                                                        "/" -> { n2 / n3 }
+                                                        "%" -> { n2 % n3 }
+                                                        "**" -> { Math.pow(n2, n3) }
+                                                        else -> null
+                                                    }
+                                                    if(t != null){
+                                                        array1[ind.toInt()] = t
+                                                    }
+                                                }
+                                                else{
+                                                    when (action){
+                                                        "+" -> {array1[ind.toInt()] =
+                                                            (variableMap[value2]?.toString() ?: value2) + (variableMap[value3]?.toString() ?: value3)
+                                                        }
+                                                        else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
+                                    else{Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()}
+
                                 }
                                 else{
-                                    if(value2 in inputMapNumber) {
-                                        if (value3 in inputMapNumber) {
-                                            when (action) {
-                                                "+" -> { inputMapNumber[value1] = inputMapNumber[value2]?.plus(inputMapNumber[value3]!!) }
-                                                "-" -> { inputMapNumber[value1] = inputMapNumber[value2]?.minus(inputMapNumber[value3]!!) }
-                                                "*" -> { inputMapNumber[value1] = inputMapNumber[value2]!! * inputMapNumber[value3]!! }
-                                                "/" -> { inputMapNumber[value1] = inputMapNumber[value2]!! / inputMapNumber[value3]!! }
-                                                "%" -> { inputMapNumber[value1] = inputMapNumber[value2]!! % inputMapNumber[value3]!! }
-                                                "**" -> { inputMapNumber[value1] = Math.pow(inputMapNumber[value2]!!, inputMapNumber[value3]!!) }
+                                    if(value2.contains("[") && value3!!.contains("[")){
+                                        val valueAtIndex1 = validArray(value2)
+                                        val valueAtIndex2 = validArray(value3)
+                                        operationVariant1(value1, valueAtIndex1, valueAtIndex2, action)
+                                    }
+                                    else if(value2.contains("[")) {
+                                        val valueAtIndex = validArray(value2)
+                                        val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double ?: variableMap[value3] as? String ?: value3
+                                        operationVariant1(value1, valueAtIndex, x, action)
+                                    }
+                                    else if(value3!!.contains("[")){
+                                        val valueAtIndex = validArray(value3)
+                                        val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double ?: variableMap[value2] as? String ?: value2
+                                        operationVariant1(value1, x, valueAtIndex, action)
+                                    }
+                                    else{
+                                        val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
+                                        val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
+
+                                        operationVariant1(value1, n2,n3,action)
+
+                                        if(n2 != null && n3!=null){
+                                            variableMap[value1] = when(action){
+                                                "+" -> { n2 + n3 }
+                                                "-" -> { n2 - n3 }
+                                                "*" -> { n2 * n3 }
+                                                "/" -> { n2 / n3 }
+                                                "%" -> { n2 % n3 }
+                                                "**" -> { Math.pow(n2, n3) }
+                                                else -> null
+                                            }
+                                        }
+                                        else{
+                                            when (action){
+                                                "+" -> {variableMap[value1] =
+                                                     (variableMap[value2]?.toString() ?: value2) + (variableMap[value3]?.toString() ?: value3)
+                                                    }
+                                                else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
                                             }
                                         }
                                     }
-                                    else{
-                                        when(action){
-                                            "+" -> {
-                                                if (value2 in inputMapNumber) {
-                                                    inputMapString[value1] = inputMapNumber[value2].toString() + inputMapString[value3]
-                                                }
-                                                else if (value2 in inputMapString) {
-                                                    if (value3 in inputMapNumber) {
-                                                        inputMapString[value1] = inputMapString[value2] + inputMapNumber[value3].toString()
-                                                    } else {
-                                                        inputMapString[value1] = inputMapString[value2] + inputMapString[value3]
-                                                    }
-                                                } else{
-                                                    inputMapString[value1] = value2 + value3
-                                                }
-                                            }
-                                            else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
-                                        }
-                                        }
                                 }
                             }
                             else{
-                                val number2 = value2.toDoubleOrNull()
-                                if(number2 != null){
-                                    inputMapNumber[value1] = number2
-                                } else{
-                                    if(value2 in inputMapNumber){
-                                        inputMapNumber[value1] = inputMapNumber[value2]
-                                    } else if(value2 in inputMapString){
-                                        inputMapString[value1] = inputMapString[value2]
-                                    } else{
-                                        inputMapString[value1] = value2
+                                if(value1.contains("[")){
+                                    val index = validArray(value1)
+                                    if (index != null) {
+                                        val temp = value1.split("[", "]")
+
+                                        val array1 = variableMap[temp[0]] as? MutableList<Any>
+
+                                            val ind = temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
+
+                                            if (array1 != null && ind != null) {
+                                                if(value2.contains("[")) {
+                                                    val valueAtIndex = validArray(value2)
+                                                    if(valueAtIndex != null){
+                                                        array1[ind.toInt()] = valueAtIndex
+                                                    } else{
+                                                        Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()
+                                                    }
+                                                } else{
+                                                    array1[ind.toInt()] =  variableMap[value2] ?: value2.toDoubleOrNull() ?:  value2
+                                                }
+                                            }
+                                    } else{Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()}
+
+                                }
+                                else {
+                                    if (value2.contains("[")) {
+                                        val valueAtIndex = validArray(value2)
+                                        if (valueAtIndex != null) {
+                                            variableMap[value1] = valueAtIndex
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Nieprawidłowe tablice: $value2 lub $value3",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } else {
+                                        val number2 = value2.toDoubleOrNull()
+                                            ?: variableMap[value2] as? Double
+                                        variableMap[value1] =
+                                            number2 ?: variableMap[value2] ?: value2
                                     }
                                 }
                             }
@@ -620,29 +701,12 @@ class MainActivity : AppCompatActivity() {
             var output = ""
             if (values!!.isNotEmpty()) {
                 for (el in values) {
-                    when (el) {
-                        in inputMapNumber -> {
-                            output += "$el = ${inputMapNumber[el]}\n"
-                        }
-
-                        in inputMapString -> {
-                            output += "$el = ${inputMapString[el]}\n"
-                        }
-
-                        in inputMapTabNumber -> {
-                            output += "$el = ${inputMapTabNumber[el]}\n"
-                        }
-
-                        in inputMapTabString -> {
-                            output += "$el = ${inputMapTabString[el]}\n"
-                        }
-
-                        else -> {
-                            Toast.makeText(this, "Niezdefiniowana zmienna: $el", Toast.LENGTH_LONG)
-                                .show()
-                        }
+                    if(el in variableMap){
+                        output+="$el = ${variableMap[el]}\n"
                     }
-
+                    else {
+                        Toast.makeText(this, "Niezdefiniowana zmienna: $el", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
 
@@ -677,12 +741,9 @@ class MainActivity : AppCompatActivity() {
             val closeButton = dialogLayout.findViewById<Button>(R.id.close_button)
 
             var output = ""
-           for(el in inputMapNumber.entries){
+           for(el in variableMap.entries){
                output+= "${el.key} = ${el.value} \n"
            }
-            for(el in inputMapString.entries){
-                output+= "${el.key} = ${el.value} \n"
-            }
 
             valuesField.text = output
 
@@ -973,5 +1034,85 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
     }
+
+
+    private  fun operationVariant1(value1: String, value2: Any?, value3:Any?, action:String){
+        if(value2 != null && value3 != null )
+        {
+            if (value2 is Double && value3 is Double) {
+                variableMap[value1] = when (action) {
+                    "+" -> value2 + value3
+                    "-" -> value2 - value3
+                    "*" -> value2 * value3
+                    "/" -> value2 / value3
+                    "%" -> value2 % value3
+                    "**" -> Math.pow(value2, value3)
+                    else -> null
+                }
+            }
+            else{
+                if(action =="+"){
+                    variableMap[value1] = value2.toString() + value3.toString()
+                }
+                else{
+                    Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w tablicach: $value2 lub $value3", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        else
+        {
+            Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private  fun operationVariant2(value2: Any?, value3:Any?, action:String): Any?{
+        if(value2 != null && value3 != null )
+        {
+            if (value2 is Double && value3 is Double) {
+                 when (action) {
+                    "+" -> {return value2 + value3}
+                    "-" -> return value2 - value3
+                    "*" -> return value2 * value3
+                    "/" -> return value2 / value3
+                    "%" -> return value2 % value3
+                    "**" -> return Math.pow(value2, value3)
+                    else -> return null
+                }
+            }
+            else{
+                if(action =="+"){
+                    return  value2.toString() + value3.toString()
+                }
+                else{
+                    Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w tablicach: $value2 lub $value3", Toast.LENGTH_LONG).show()
+                }
+            }
+            return null
+        }
+        else
+        {
+            Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()
+        }
+        return null
+    }
+
+
+
+    private fun validArray(str: String): Any?{
+        val temp = str.split("[", "]")
+
+        if(temp[0] in variableMap) {
+            val array1 = variableMap[temp[0]] as? List<Any>
+
+            val index= temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
+
+            if (array1 != null && index != null) {
+                val valueAtIndex = array1.getOrNull(index.toInt())
+                return valueAtIndex
+            }
+        }
+        return null
+    }
+
 }
 
