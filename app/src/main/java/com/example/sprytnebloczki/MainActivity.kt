@@ -31,6 +31,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.pow
 
 class MainActivity : AppCompatActivity() {
 
@@ -53,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     private var start = false
     private var stop = false
     private val variableMap: MutableMap<String, Any?> = mutableMapOf()
+    private var currentIfBlock: IfBlock? = null
+    private var currentResult:Boolean = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,9 +138,7 @@ class MainActivity : AppCompatActivity() {
                                     if (result) {
                                         line.colorGreen()
                                         ifBlock.setBlockTrue(block2)
-                                        println(true)
                                     } else {
-                                        println("Użytkownik wybrał: Nie")
                                         line.colorRed()
                                         ifBlock.setBlockFalse(block2)
                                     }
@@ -216,6 +217,14 @@ class MainActivity : AppCompatActivity() {
             } else {
                 CoroutineScope(Dispatchers.Main).launch {
                     for (block in executionSequence) {
+                        if(currentIfBlock!=null){
+                            if(block == currentIfBlock!!.getBlockTrue() && !currentResult){
+                                continue
+                            }
+                            else if(block ==currentIfBlock!!.getBlockFalse() && currentResult){
+                                continue
+                            }
+                        }
                         block.getImage().setBackgroundColor(Color.GREEN)
                         delay(3000)
                         if (block.getType() == "input") {
@@ -288,11 +297,19 @@ class MainActivity : AppCompatActivity() {
                                                         "+" -> { n2 + n3 }
                                                         "-" -> { n2 - n3 }
                                                         "*" -> { n2 * n3 }
-                                                        "/" -> { n2 / n3 }
+                                                        "/" -> {
+                                                            if(n3==0.0){
+                                                                Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
+                                                                null
+                                                            } else{
+                                                                n2 / n3
+                                                            }
+                                                        }
                                                         "%" -> { n2 % n3 }
                                                         "**" -> { Math.pow(n2, n3) }
                                                         else -> null
                                                     }
+
                                                     if(t != null){
                                                         array1[ind.toInt()] = t
                                                     }
@@ -338,7 +355,12 @@ class MainActivity : AppCompatActivity() {
                                                 "+" -> { n2 + n3 }
                                                 "-" -> { n2 - n3 }
                                                 "*" -> { n2 * n3 }
-                                                "/" -> { n2 / n3 }
+                                                "/" -> {if(n3==0.0){
+                                                    Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
+                                                    null
+                                                } else{
+                                                    n2 / n3
+                                                } }
                                                 "%" -> { n2 % n3 }
                                                 "**" -> { Math.pow(n2, n3) }
                                                 else -> null
@@ -405,6 +427,32 @@ class MainActivity : AppCompatActivity() {
                         }
                         else if (block.getType() == "warunek") {
                             val ifBlock = block as IfBlock
+                            currentIfBlock = ifBlock
+                            val value1 = ifBlock.getFirstValue()
+                            val value2 = ifBlock.getSecondValue()
+                            val action = ifBlock.getAction()
+
+                            var n1:Any? = null
+                            var n2:Any? = null
+
+                            if(value1.contains("[")){
+                                n1=validArray(value1)
+                                if(n1==null)
+                                    Toast.makeText(this@MainActivity, "Niepoprawna tablica lub indeks", Toast.LENGTH_LONG).show()
+                            }
+                            if(value2.contains("[")){
+                                n2 = validArray(value2)
+                                if(n2==null)
+                                    Toast.makeText(this@MainActivity, "Niepoprawna tablica lub indeks", Toast.LENGTH_LONG).show()
+                            }
+
+                            val x = n1 ?: variableMap[value1] ?: value1.toDoubleOrNull() ?: value1
+                            val y = n2 ?: variableMap[value2] ?: value2.toDoubleOrNull() ?: value2
+                            var result:Boolean
+
+                            result = comparison(x, y, action)
+
+                            currentResult = result
 
                         }
                         block.getImage().setBackgroundColor(Color.TRANSPARENT)
@@ -1060,7 +1108,13 @@ class MainActivity : AppCompatActivity() {
                     "+" -> value2 + value3
                     "-" -> value2 - value3
                     "*" -> value2 * value3
-                    "/" -> value2 / value3
+                    "/" -> {
+                        if(value3==0.0){
+                            Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
+                        } else{
+                            value2 / value3
+                        }
+                    }
                     "%" -> value2 % value3
                     "**" -> Math.pow(value2, value3)
                     else -> null
@@ -1089,7 +1143,11 @@ class MainActivity : AppCompatActivity() {
                     "+" -> {return value2 + value3}
                     "-" -> return value2 - value3
                     "*" -> return value2 * value3
-                    "/" -> return value2 / value3
+                    "/" -> {if(value3==0.0){
+                        Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
+                    } else{
+                        return value2 / value3
+                    } }
                     "%" -> return value2 % value3
                     "**" -> return Math.pow(value2, value3)
                     else -> return null
@@ -1130,5 +1188,32 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
+    private fun comparison(val1:Any ,val2:Any, action:String): Boolean{
+
+        if(val1 is Double && val2 is Double){
+            return when(action){
+                "=" -> val1 == val2
+                "!=" -> val1 != val2
+                "<" -> val1 < val2
+                "<=" -> val1 <= val2
+                ">" -> val1 > val2
+                ">=" -> val1 >= val2
+                else -> false
+            }
+        }
+        else if(val1 is String && val2 is String) {
+            return when (action) {
+                "=" -> val1 == val2
+                "!=" -> val1 != val2
+                "<" -> val1 < val2
+                "<=" -> val1 <= val2
+                ">" -> val1 > val2
+                ">=" -> val1 >= val2
+                else -> false
+            }
+        }
+        Toast.makeText(this@MainActivity, "Nieprawidłowe wartości", Toast.LENGTH_SHORT).show()
+        return false
+    }
 }
 
