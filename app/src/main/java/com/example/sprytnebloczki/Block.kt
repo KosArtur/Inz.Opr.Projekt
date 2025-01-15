@@ -5,6 +5,8 @@ import android.widget.FrameLayout
 open class Block(private val image:FrameLayout, private val type:String) {
     private var id: Int=0
     val connectedLines = mutableListOf<LineView>()
+    private var previousBlock: Block?= null
+    private var nextBlock: Block?= null
 
     companion object {
         private var idCounter: Int = 0
@@ -32,5 +34,19 @@ open class Block(private val image:FrameLayout, private val type:String) {
 
     open fun getLine(): MutableList<LineView> {
         return connectedLines
+    }
+
+    open fun setPreviousBlock(block:Block){
+        this.previousBlock = block
+    }
+    open fun setNextBlock(block: Block?){
+        this.nextBlock = block
+    }
+
+    open fun getPreviousBlock(): Block?{
+        return this.previousBlock
+    }
+    open fun getNextBlock(): Block?{
+        return this.nextBlock
     }
 }

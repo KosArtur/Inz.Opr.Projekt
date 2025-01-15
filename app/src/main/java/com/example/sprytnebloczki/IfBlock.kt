@@ -12,11 +12,11 @@ class IfBlock(image: FrameLayout, type:String):
     private var blockTrue:Block? = null
     private var blockFalse: Block? = null
 
-    fun setBlockTrue(block: Block){
+    fun setBlockTrue(block: Block?){
         this.blockTrue=block
     }
 
-    fun setBlockFalse(block: Block){
+    fun setBlockFalse(block: Block?){
         this.blockFalse=block
     }
 

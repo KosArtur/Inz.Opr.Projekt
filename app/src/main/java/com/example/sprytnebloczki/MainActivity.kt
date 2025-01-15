@@ -31,7 +31,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.pow
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linia: TextView
     private lateinit var rootLayout: FrameLayout
     private val selectedBlocks = mutableListOf<Block>()
-    private val executionSequence = mutableListOf<Block>()
+    private val ifBlocks = mutableListOf<IfBlock>()
     private val activeBlocks = mutableListOf<Block>() // od tąd są nowe zmienne
     private lateinit var usun: TextView
     private var start = false
@@ -56,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private val variableMap: MutableMap<String, Any?> = mutableMapOf()
     private var currentIfBlock: IfBlock? = null
     private var currentResult:Boolean = false
+    private var startBlock: Block? = null
+    private var endBlock: Block? = null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,7 +100,6 @@ class MainActivity : AppCompatActivity() {
                 val block1 = selectedBlocks[0]
                 val block2 = selectedBlocks[1]
 
-
                 if (block2.getType() == "start") {
                     Toast.makeText(this, "Bloczek Start musi byc pierwszy!", Toast.LENGTH_LONG)
                         .show()
@@ -107,27 +107,13 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Bloczek Koniec musi byc ostatni!", Toast.LENGTH_LONG)
                         .show()
                 } else {
-                    if ((block1.getType() == "start" && block1.connectedLines.size == 1) || (block2.getType() == "koniec" && block2.connectedLines.size == 1)) {
+                    if ((block1.getType() == "start" && block1.connectedLines.size == 1) || (block2.getType() == "koniec" && block2.connectedLines.size == 2)) {
                         Toast.makeText(
                             this,
-                            "Bloczki Start i Koniec mogą mieć tylko jedno połączenie!",
+                            "Bloczki Start i Koniec nie mogą mieć więcej połączeń!",
                             Toast.LENGTH_LONG
                         ).show()
-                    } else if (((block1.getType() == "input" || block1.getType() == "operacja") && block1.connectedLines.size == 2)
-                        || ((block2.getType() == "input" || block2.getType() == "operacja") && block2.connectedLines.size == 2)
-                    ) {
-                        Toast.makeText(
-                            this,
-                            "Bloczki Input i Operacja mogą mieć tylko dwa połączenia!",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else if ((block1.getType() == "warunek" && block1.connectedLines.size == 3) || (block2.getType() == "warunek" && block2.connectedLines.size == 3)) {
-                        Toast.makeText(
-                            this,
-                            "Bloczek Warunkowy może mieć tylko trzy połączenia!",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
+                    }  else {
                         val line = LineView(this)
 
                         if (block1.getType() == "warunek") {
@@ -159,20 +145,14 @@ class MainActivity : AppCompatActivity() {
                             rootLayout.addView(line)
                         }
 
+
                         block1.addLine(line)
                         block2.addLine(line)
                         line.setStartBlock(block1)
                         line.setEndBlock(block2)
-                        if (block1 in executionSequence) {
-                            executionSequence.add(executionSequence.indexOf(block1) + 1, block2)
 
-                        } else if (block2 in executionSequence) {
-                            executionSequence.add(executionSequence.indexOf(block2), block1)
-                        } else {
-                            executionSequence.add(block1)
-                            executionSequence.add(block2)
-                        }
-
+                        block1.setNextBlock(block2)
+                        block2.setPreviousBlock(block1)
 
                         line.setLinePoints(
                             block1.getImage().x + block1.getImage().width / 2,
@@ -180,7 +160,6 @@ class MainActivity : AppCompatActivity() {
                             block2.getImage().x + block2.getImage().width / 2,
                             block2.getImage().y + block2.getImage().height / 6
                         )
-
 
                         val draggable1 = DraggableBloc().apply {
                             setBlock(block1)
@@ -205,261 +184,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
         buttonRun = findViewById(R.id.buttonRun)
 
-        buttonRun.setOnClickListener {
-            variableMap.clear()
-            if (executionSequence.first()
-                    .getType() != "start" || executionSequence[executionSequence.size - 1].getType() != "koniec"
-            ) {
-                Toast.makeText(this, "Nieprawidłowa kolejność bloczków", Toast.LENGTH_SHORT).show()
-            } else {
-                CoroutineScope(Dispatchers.Main).launch {
-                    for (block in executionSequence) {
-                        if(currentIfBlock!=null){
-                            if(block == currentIfBlock!!.getBlockTrue() && !currentResult){
-                                continue
-                            }
-                            else if(block ==currentIfBlock!!.getBlockFalse() && currentResult){
-                                continue
-                            }
-                        }
-                        block.getImage().setBackgroundColor(Color.GREEN)
-                        delay(3000)
-                        if (block.getType() == "input") {
-                            val inputBlock = block as InputBlock
-                            val values = inputBlock.getUserInput().split(",")
-                            if (inputBlock.getAction() == "Read" && values.isNotEmpty()) {
-                                //show dialog do wprowadzania
-                                for (el in values) {
-                                    val userInput = showInputDialog(el, inputBlock)
-                                    when(inputBlock.getInputTYpe()){
-                                        "Number" -> {variableMap[el] = userInput?.toDouble()}
-                                        "String" -> {variableMap[el] = userInput}
-                                        "Array Number" -> {variableMap[el] = userInput?.split(",")?.map {it.toDouble()}}
-                                        "Array String" -> {variableMap[el] = userInput?.split(",")}
-                                    }
-                                }
-                            } else {
-                                //show wartości
-                                showOutputDialog(values)
-                            }
-
-                        }
-                        else if (block.getType() == "operacja") {
-                            val operationBlock = block as OperationBlock
-                            val value1 = operationBlock.getFirstValue() //zawsze string
-                            val value2 = operationBlock.getSecondValue()
-                            val value3 = operationBlock.getThirdValue()
-                            val action = operationBlock.getAction()
-
-                            if(action != null)
-                            {
-                                if(value1.contains("[")){
-                                    val index = validArray(value1)
-                                    if (index != null) {
-                                        val temp = value1.split("[", "]")
-                                        val array1 = variableMap[temp[0]] as? MutableList<Any>
-                                        val ind = temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
-                                        if (array1 != null && ind != null) {
-                                            if(value2.contains("[") && value3!!.contains("[")){
-                                                val valueAtIndex1 = validArray(value2)
-                                                val valueAtIndex2 = validArray(value3)
-                                                val t = operationVariant2(valueAtIndex1, valueAtIndex2, action)
-                                                if(t != null){
-                                                    array1[ind.toInt()] = t
-                                                }
-                                            }
-                                            else if(value2.contains("[")) {
-                                                val valueAtIndex = validArray(value2)
-                                                val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double ?: variableMap[value3] as? String ?: value3
-                                                val t = operationVariant2(valueAtIndex, x, action)
-                                                if(t != null){
-                                                    array1[ind.toInt()] = t
-                                                }
-                                            }
-                                            else if(value3!!.contains("[")){
-                                                val valueAtIndex = validArray(value3)
-                                                val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double ?: variableMap[value2] as? String ?: value2
-                                                val t = operationVariant2(x, valueAtIndex, action)
-                                                if(t != null){
-                                                    array1[ind.toInt()] = t
-                                                }
-                                            }
-                                            else{
-                                                val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
-                                                val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
-
-
-                                                if(n2 != null && n3!=null){
-                                                    val t = when(action){
-                                                        "+" -> { n2 + n3 }
-                                                        "-" -> { n2 - n3 }
-                                                        "*" -> { n2 * n3 }
-                                                        "/" -> {
-                                                            if(n3==0.0){
-                                                                Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
-                                                                null
-                                                            } else{
-                                                                n2 / n3
-                                                            }
-                                                        }
-                                                        "%" -> { n2 % n3 }
-                                                        "**" -> { Math.pow(n2, n3) }
-                                                        else -> null
-                                                    }
-
-                                                    if(t != null){
-                                                        array1[ind.toInt()] = t
-                                                    }
-                                                }
-                                                else{
-                                                    when (action){
-                                                        "+" -> {array1[ind.toInt()] =
-                                                            (variableMap[value2]?.toString() ?: value2) + (variableMap[value3]?.toString() ?: value3)
-                                                        }
-                                                        else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    else{Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()}
-
-                                }
-                                else{
-                                    if(value2.contains("[") && value3!!.contains("[")){
-                                        val valueAtIndex1 = validArray(value2)
-                                        val valueAtIndex2 = validArray(value3)
-                                        operationVariant1(value1, valueAtIndex1, valueAtIndex2, action)
-                                    }
-                                    else if(value2.contains("[")) {
-                                        val valueAtIndex = validArray(value2)
-                                        val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double ?: variableMap[value3] as? String ?: value3
-                                        operationVariant1(value1, valueAtIndex, x, action)
-                                    }
-                                    else if(value3!!.contains("[")){
-                                        val valueAtIndex = validArray(value3)
-                                        val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double ?: variableMap[value2] as? String ?: value2
-                                        operationVariant1(value1, x, valueAtIndex, action)
-                                    }
-                                    else{
-                                        val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
-                                        val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
-
-                                        operationVariant1(value1, n2,n3,action)
-
-                                        if(n2 != null && n3!=null){
-                                            variableMap[value1] = when(action){
-                                                "+" -> { n2 + n3 }
-                                                "-" -> { n2 - n3 }
-                                                "*" -> { n2 * n3 }
-                                                "/" -> {if(n3==0.0){
-                                                    Toast.makeText(this@MainActivity, "Dzielenie przez 0!", Toast.LENGTH_LONG).show()
-                                                    null
-                                                } else{
-                                                    n2 / n3
-                                                } }
-                                                "%" -> { n2 % n3 }
-                                                "**" -> { Math.pow(n2, n3) }
-                                                else -> null
-                                            }
-                                        }
-                                        else{
-                                            when (action){
-                                                "+" -> {variableMap[value1] =
-                                                     (variableMap[value2]?.toString() ?: value2) + (variableMap[value3]?.toString() ?: value3)
-                                                    }
-                                                else ->{Toast.makeText(this@MainActivity, "Nieprawidłowe wartości w bloczku operacyjnym", Toast.LENGTH_LONG).show()}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else{
-                                if(value1.contains("[")){
-                                    val index = validArray(value1)
-                                    if (index != null) {
-                                        val temp = value1.split("[", "]")
-
-                                        val array1 = variableMap[temp[0]] as? MutableList<Any>
-
-                                            val ind = temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
-
-                                            if (array1 != null && ind != null) {
-                                                if(value2.contains("[")) {
-                                                    val valueAtIndex = validArray(value2)
-                                                    if(valueAtIndex != null){
-                                                        array1[ind.toInt()] = valueAtIndex
-                                                    } else{
-                                                        Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()
-                                                    }
-                                                } else{
-                                                    array1[ind.toInt()] =  variableMap[value2] ?: value2.toDoubleOrNull() ?:  value2
-                                                }
-                                            }
-                                    } else{Toast.makeText(this@MainActivity, "Nieprawidłowe tablice: $value2 lub $value3", Toast.LENGTH_LONG).show()}
-
-                                }
-                                else {
-                                    if (value2.contains("[")) {
-                                        val valueAtIndex = validArray(value2)
-                                        if (valueAtIndex != null) {
-                                            variableMap[value1] = valueAtIndex
-                                        } else {
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                "Nieprawidłowe tablice: $value2 lub $value3",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                    } else {
-                                        val number2 = value2.toDoubleOrNull()
-                                            ?: variableMap[value2] as? Double
-                                        variableMap[value1] =
-                                            number2 ?: variableMap[value2] ?: value2
-                                    }
-                                }
-                            }
-                            showAll()
-
-                        }
-                        else if (block.getType() == "warunek") {
-                            val ifBlock = block as IfBlock
-                            currentIfBlock = ifBlock
-                            val value1 = ifBlock.getFirstValue()
-                            val value2 = ifBlock.getSecondValue()
-                            val action = ifBlock.getAction()
-
-                            var n1:Any? = null
-                            var n2:Any? = null
-
-                            if(value1.contains("[")){
-                                n1=validArray(value1)
-                                if(n1==null)
-                                    Toast.makeText(this@MainActivity, "Niepoprawna tablica lub indeks", Toast.LENGTH_LONG).show()
-                            }
-                            if(value2.contains("[")){
-                                n2 = validArray(value2)
-                                if(n2==null)
-                                    Toast.makeText(this@MainActivity, "Niepoprawna tablica lub indeks", Toast.LENGTH_LONG).show()
-                            }
-
-                            val x = n1 ?: variableMap[value1] ?: value1.toDoubleOrNull() ?: value1
-                            val y = n2 ?: variableMap[value2] ?: value2.toDoubleOrNull() ?: value2
-                            var result:Boolean
-
-                            result = comparison(x, y, action)
-
-                            currentResult = result
-
-                        }
-                        block.getImage().setBackgroundColor(Color.TRANSPARENT)
-                    }
+        buttonRun.setOnClickListener{
+            var ok = true
+            for(el in ifBlocks){
+                if(el.getBlockTrue() == null || el.getBlockFalse() == null){
+                    Toast.makeText(this, "Bloki warunkowe nie mają wymaganych połączeń", Toast.LENGTH_LONG).show()
+                    ok=false
                 }
             }
-        }
+           if(startBlock!=null && endBlock!=null && ok){
+               CoroutineScope(Dispatchers.Main).launch {
+                   exec(startBlock!!)
+               }
+           } else{
+               Toast.makeText(this, "Schemat musi zaczynać sie od bloku Start i kończyc od bloku Koniec!", Toast.LENGTH_LONG).show()
+           }
+       }
+
         buttonOptions = findViewById(R.id.buttonOptions)
         buttonCode = findViewById(R.id.buttonCode)
 
@@ -523,14 +266,24 @@ class MainActivity : AppCompatActivity() {
 
                     if (i.getType() == "start") {//czy usuwany bloczek to start lub stop
                         start = false
+                        startBlock=null
                     }
                     if (i.getType() == "koniec") {
                         stop = false
+                        endBlock=null
                     }
-
+                    if(i.getPreviousBlock()?.getType() == "warunek"){
+                        val temp = i.getPreviousBlock() as IfBlock
+                        if(temp.getBlockTrue() == i){
+                            temp.setBlockTrue(null)
+                        }
+                        else if(temp.getBlockFalse() == i){
+                            temp.setBlockFalse(null)
+                        }
+                    }
                     rootLayout.removeView(i.getImage()) // Usunięcie z widoku
                     activeBlocks.remove(i) // Usunięcie z listy
-                    executionSequence.remove(i)
+
                 }
                 selectedBlocks.clear()
             } else {
@@ -538,7 +291,6 @@ class MainActivity : AppCompatActivity() {
                     .show()
             }
         }
-
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -656,6 +408,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     "warunek" -> {
                         val block = IfBlock(iconWithText, type)
+                        ifBlocks.add(block)
 
                         rootLayout.addView(block.getImage())// Dodanie bloku do widoku
                         activeBlocks.add(block)
@@ -668,6 +421,12 @@ class MainActivity : AppCompatActivity() {
                     }
                     else -> {
                         val block = Block(iconWithText, type)
+                        if(block.getType() == "start"){
+                            startBlock = block
+                        }
+                        else if(block.getType() == "koniec"){
+                            endBlock = block
+                        }
 
                         rootLayout.addView(block.getImage())// Dodanie bloku do widoku
                         activeBlocks.add(block)
@@ -1099,7 +858,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private  fun operationVariant1(value1: String, value2: Any?, value3:Any?, action:String){
         if(value2 != null && value3 != null )
         {
@@ -1170,8 +928,6 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
-
-
     private fun validArray(str: String): Any?{
         val temp = str.split("[", "]")
 
@@ -1214,6 +970,344 @@ class MainActivity : AppCompatActivity() {
         }
         Toast.makeText(this@MainActivity, "Nieprawidłowe wartości", Toast.LENGTH_SHORT).show()
         return false
+    }
+
+    private suspend fun exec(block:Block): Block? {
+
+        block.getImage().setBackgroundColor(Color.GREEN)
+        delay(3000)
+        if (block.getType() == "input") {
+            val inputBlock = block as InputBlock
+            val values = inputBlock.getUserInput().split(",")
+            if (inputBlock.getAction() == "Read" && values.isNotEmpty()) {
+                //show dialog do wprowadzania
+                for (el in values) {
+                    val userInput = showInputDialog(el, inputBlock)
+                    when (inputBlock.getInputTYpe()) {
+                        "Number" -> {
+                            variableMap[el] = userInput?.toDouble()
+                        }
+
+                        "String" -> {
+                            variableMap[el] = userInput
+                        }
+
+                        "Array Number" -> {
+                            variableMap[el] = userInput?.split(",")?.map { it.toDouble() }
+                        }
+
+                        "Array String" -> {
+                            variableMap[el] = userInput?.split(",")
+                        }
+                    }
+                }
+            } else {
+                //show wartości
+                showOutputDialog(values)
+            }
+
+        }
+        else if (block.getType() == "operacja") {
+            val operationBlock = block as OperationBlock
+            val value1 = operationBlock.getFirstValue() //zawsze string
+            val value2 = operationBlock.getSecondValue()
+            val value3 = operationBlock.getThirdValue()
+            val action = operationBlock.getAction()
+
+            if (action != null) {
+                if (value1.contains("[")) {
+                    val index = validArray(value1)
+                    if (index != null) {
+                        val temp = value1.split("[", "]")
+                        val array1 = variableMap[temp[0]] as? MutableList<Any>
+                        val ind =
+                            temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
+                        if (array1 != null && ind != null) {
+                            if (value2.contains("[") && value3!!.contains("[")) {
+                                val valueAtIndex1 = validArray(value2)
+                                val valueAtIndex2 = validArray(value3)
+                                val t = operationVariant2(valueAtIndex1, valueAtIndex2, action)
+                                if (t != null) {
+                                    array1[ind.toInt()] = t
+                                }
+                            } else if (value2.contains("[")) {
+                                val valueAtIndex = validArray(value2)
+                                val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double
+                                ?: variableMap[value3] as? String ?: value3
+                                val t = operationVariant2(valueAtIndex, x, action)
+                                if (t != null) {
+                                    array1[ind.toInt()] = t
+                                }
+                            } else if (value3!!.contains("[")) {
+                                val valueAtIndex = validArray(value3)
+                                val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double
+                                ?: variableMap[value2] as? String ?: value2
+                                val t = operationVariant2(x, valueAtIndex, action)
+                                if (t != null) {
+                                    array1[ind.toInt()] = t
+                                }
+                            } else {
+                                val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
+                                val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
+
+
+                                if (n2 != null && n3 != null) {
+                                    val t = when (action) {
+                                        "+" -> {
+                                            n2 + n3
+                                        }
+
+                                        "-" -> {
+                                            n2 - n3
+                                        }
+
+                                        "*" -> {
+                                            n2 * n3
+                                        }
+
+                                        "/" -> {
+                                            if (n3 == 0.0) {
+                                                Toast.makeText(
+                                                    this@MainActivity,
+                                                    "Dzielenie przez 0!",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                                null
+                                            } else {
+                                                n2 / n3
+                                            }
+                                        }
+
+                                        "%" -> {
+                                            n2 % n3
+                                        }
+
+                                        "**" -> {
+                                            Math.pow(n2, n3)
+                                        }
+
+                                        else -> null
+                                    }
+
+                                    if (t != null) {
+                                        array1[ind.toInt()] = t
+                                    }
+                                } else {
+                                    when (action) {
+                                        "+" -> {
+                                            array1[ind.toInt()] =
+                                                (variableMap[value2]?.toString()
+                                                    ?: value2) + (variableMap[value3]?.toString()
+                                                    ?: value3)
+                                        }
+
+                                        else -> {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Nieprawidłowe wartości w bloczku operacyjnym",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Nieprawidłowe tablice: $value2 lub $value3",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                } else {
+                    if (value2.contains("[") && value3!!.contains("[")) {
+                        val valueAtIndex1 = validArray(value2)
+                        val valueAtIndex2 = validArray(value3)
+                        operationVariant1(value1, valueAtIndex1, valueAtIndex2, action)
+                    } else if (value2.contains("[")) {
+                        val valueAtIndex = validArray(value2)
+                        val x = value3?.toDoubleOrNull() ?: variableMap[value3] as? Double
+                        ?: variableMap[value3] as? String ?: value3
+                        operationVariant1(value1, valueAtIndex, x, action)
+                    } else if (value3!!.contains("[")) {
+                        val valueAtIndex = validArray(value3)
+                        val x = value2.toDoubleOrNull() ?: variableMap[value2] as? Double
+                        ?: variableMap[value2] as? String ?: value2
+                        operationVariant1(value1, x, valueAtIndex, action)
+                    } else {
+                        val n2 = variableMap[value2] as? Double ?: value2.toDoubleOrNull()
+                        val n3 = variableMap[value3] as? Double ?: value3.toDoubleOrNull()
+
+                        operationVariant1(value1, n2, n3, action)
+
+                        if (n2 != null && n3 != null) {
+                            variableMap[value1] = when (action) {
+                                "+" -> {
+                                    n2 + n3
+                                }
+
+                                "-" -> {
+                                    n2 - n3
+                                }
+
+                                "*" -> {
+                                    n2 * n3
+                                }
+
+                                "/" -> {
+                                    if (n3 == 0.0) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Dzielenie przez 0!",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        null
+                                    } else {
+                                        n2 / n3
+                                    }
+                                }
+
+                                "%" -> {
+                                    n2 % n3
+                                }
+
+                                "**" -> {
+                                    Math.pow(n2, n3)
+                                }
+
+                                else -> null
+                            }
+                        } else {
+                            when (action) {
+                                "+" -> {
+                                    variableMap[value1] =
+                                        (variableMap[value2]?.toString()
+                                            ?: value2) + (variableMap[value3]?.toString() ?: value3)
+                                }
+
+                                else -> {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Nieprawidłowe wartości w bloczku operacyjnym",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (value1.contains("[")) {
+                    val index = validArray(value1)
+                    if (index != null) {
+                        val temp = value1.split("[", "]")
+
+                        val array1 = variableMap[temp[0]] as? MutableList<Any>
+
+                        val ind =
+                            temp.getOrNull(1)?.toDoubleOrNull() ?: variableMap[temp[1]] as? Double
+
+                        if (array1 != null && ind != null) {
+                            if (value2.contains("[")) {
+                                val valueAtIndex = validArray(value2)
+                                if (valueAtIndex != null) {
+                                    array1[ind.toInt()] = valueAtIndex
+                                } else {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Nieprawidłowe tablice: $value2 lub $value3",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            } else {
+                                array1[ind.toInt()] =
+                                    variableMap[value2] ?: value2.toDoubleOrNull() ?: value2
+                            }
+                        }
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Nieprawidłowe tablice: $value2 lub $value3",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                } else {
+                    if (value2.contains("[")) {
+                        val valueAtIndex = validArray(value2)
+                        if (valueAtIndex != null) {
+                            variableMap[value1] = valueAtIndex
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Nieprawidłowe tablice: $value2 lub $value3",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } else {
+                        val number2 = value2.toDoubleOrNull()
+                            ?: variableMap[value2] as? Double
+                        variableMap[value1] =
+                            number2 ?: variableMap[value2] ?: value2
+                    }
+                }
+            }
+            showAll()
+
+        }
+        else if (block.getType() == "warunek") {
+            val ifBlock = block as IfBlock
+            currentIfBlock = ifBlock
+            val blockTrue = ifBlock.getBlockTrue()
+            val blockFalse = ifBlock.getBlockFalse()
+            val value1 = ifBlock.getFirstValue()
+            val value2 = ifBlock.getSecondValue()
+            val action = ifBlock.getAction()
+
+            var n1: Any? = null
+            var n2: Any? = null
+
+            if (value1.contains("[")) {
+                n1 = validArray(value1)
+                if (n1 == null)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Niepoprawna tablica lub indeks",
+                        Toast.LENGTH_LONG
+                    ).show()
+            }
+            if (value2.contains("[")) {
+                n2 = validArray(value2)
+                if (n2 == null)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Niepoprawna tablica lub indeks",
+                        Toast.LENGTH_LONG
+                    ).show()
+            }
+
+            val x = n1 ?: variableMap[value1] ?: value1.toDoubleOrNull() ?: value1
+            val y = n2 ?: variableMap[value2] ?: value2.toDoubleOrNull() ?: value2
+            var result: Boolean
+
+            result = comparison(x, y, action)
+            block.getImage().setBackgroundColor(Color.TRANSPARENT)
+
+            currentResult = result
+            if(result){
+                return exec(blockTrue!!)
+            } else{
+                return exec(blockFalse!!)
+            }
+
+        }
+        block.getImage().setBackgroundColor(Color.TRANSPARENT)
+        if(block.getNextBlock() != null){
+            val b =block.getNextBlock()
+            return exec(b!!)
+        }
+      return null
     }
 }
 
