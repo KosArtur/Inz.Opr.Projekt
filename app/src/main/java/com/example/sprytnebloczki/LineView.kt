@@ -64,4 +64,9 @@ class LineView(context: Context, attrs: AttributeSet? = null) : View(context, at
         this.endY = endY
         invalidate()
     }
+
+
+    fun getConnectedBlock(): Block {
+        return this.endBloc
+    }
 }

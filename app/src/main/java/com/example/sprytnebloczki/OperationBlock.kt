@@ -2,16 +2,11 @@ package com.example.sprytnebloczki
 
 import android.widget.FrameLayout
 
-class OperationBlock(image: FrameLayout, type:String):
-    Block(image, type)  {
+class OperationBlock(image: FrameLayout, type:String): Block(image, type)  {
         private var action: String? = null
     private var firstValue: String = ""
     private  var secondValue: String = ""
     private var thirdValue: String? =null
-
-    fun getAction():String?{
-        return this.action
-    }
 
     fun getFirstValue():String{
         return this.firstValue
@@ -37,8 +32,8 @@ class OperationBlock(image: FrameLayout, type:String):
         this.thirdValue = value
     }
 
-    fun setAction(action: String){
-        this.action = action
+    override fun getAction(): String? {
+        return super.getAction()
     }
 
 

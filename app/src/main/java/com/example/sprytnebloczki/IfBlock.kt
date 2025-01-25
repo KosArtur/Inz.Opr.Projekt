@@ -2,8 +2,7 @@ package com.example.sprytnebloczki
 
 import android.widget.FrameLayout
 
-class IfBlock(image: FrameLayout, type:String):
-    Block(image, type)  {
+class IfBlock(image: FrameLayout, type:String): Block(image, type)  {
         private var action: String = ""
     private var firstValue: String = ""
     private  var secondValue: String = ""
@@ -28,12 +27,8 @@ class IfBlock(image: FrameLayout, type:String):
         return this.blockFalse
     }
 
-    fun setAction(action: String){
-        this.action = action
-    }
-
-    fun getAction():String{
-        return this.action
+    override fun getAction(): String? {
+        return super.getAction()
     }
 
     fun getFirstValue():String{
@@ -60,12 +55,12 @@ class IfBlock(image: FrameLayout, type:String):
         this.lineFalse = line
     }
 
-    fun getLineTrue():LineView{
-        return this.lineTrue
+    fun getLineTrue(): LineView? {
+        return if (::lineTrue.isInitialized) lineTrue else null
     }
 
-    fun getLineFalse():LineView{
-        return this.lineFalse
+    fun getLineFalse(): LineView? {
+        return if (::lineFalse.isInitialized) lineFalse else null
     }
 
 

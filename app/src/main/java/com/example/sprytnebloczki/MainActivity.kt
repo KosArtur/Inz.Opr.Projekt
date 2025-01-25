@@ -1,13 +1,20 @@
 package com.example.sprytnebloczki
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.telecom.Connection
 import android.util.Log // Do testów
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
@@ -24,9 +31,11 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
@@ -48,7 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootLayout: FrameLayout
     private val selectedBlocks = mutableListOf<Block>()
     private val ifBlocks = mutableListOf<IfBlock>()
-    private val activeBlocks = mutableListOf<Block>() // od tąd są nowe zmienne
+    private val activeBlocks = mutableListOf<Block>()
     private lateinit var usun: TextView
     private var start = false
     private var stop = false
@@ -57,6 +66,21 @@ class MainActivity : AppCompatActivity() {
     private var currentResult:Boolean = false
     private var startBlock: Block? = null
     private var endBlock: Block? = null
+    private val blockDiagramPersistence = BlockDiagramPersistence()
+    private val blocksWithConnections = mutableMapOf<Block, List<Connection>>()
+
+    val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
+        uri?.let {
+            // Jeśli masz już listę bloków w MainActivity, po prostu przekaż ją
+            val blockDiagramPersistence = BlockDiagramPersistence()
+            blockDiagramPersistence.saveToFile(this, activeBlocks, it)  // Przekazujemy listę bloków i URI
+        }
+    }
+
+    companion object {
+        private const val REQUEST_SAVE_FILE = 1
+        private const val REQUEST_READ_FILE = 2
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,20 +103,20 @@ class MainActivity : AppCompatActivity() {
         linia = findViewById(R.id.linia)
 
         startBloc.setOnClickListener {
-            addBloc("start")
+            addBloc("start", 0)
             instruction.visibility = View.GONE
         }
         endBloc.setOnClickListener {
-            addBloc("koniec")
+            addBloc("koniec",0)
         }
         operationBloc.setOnClickListener {
-            addBloc("operacja")
+            addBloc("operacja", 0)
         }
         ifBloc.setOnClickListener {
-            addBloc("warunek")
+            addBloc("warunek", 0)
         }
         inputBloc.setOnClickListener {
-            addBloc("input")
+            addBloc("input", 0)
         }
         linia.setOnClickListener {
 
@@ -124,9 +148,11 @@ class MainActivity : AppCompatActivity() {
                                     if (result) {
                                         line.colorGreen()
                                         ifBlock.setBlockTrue(block2)
+                                        ifBlock.setLineTrue(line)
                                     } else {
                                         line.colorRed()
                                         ifBlock.setBlockFalse(block2)
+                                        ifBlock.setLineFalse(line)
                                     }
                                     rootLayout.addView(line)
                                 }
@@ -222,12 +248,18 @@ class MainActivity : AppCompatActivity() {
 
                     R.id.action_saveFile -> {
                         // zapisanie pliku
-
+                        showSaveDialog()
                         true
                     }
 
                     R.id.action_readFile -> {
                         // wczytanie pliku
+
+                        clearWorkspace() // wyczyść okno
+                        start = false
+                        stop = false
+                        showOpenDialog() // Otwórz dialog do wyboru pliku
+
 
                         true
                     }
@@ -249,7 +281,7 @@ class MainActivity : AppCompatActivity() {
 
         }
 
-        usun = findViewById(R.id.usun)// to też dodałem
+        usun = findViewById(R.id.usun)
 
         usun.setOnClickListener {
             if (selectedBlocks.size > 0) {
@@ -291,10 +323,11 @@ class MainActivity : AppCompatActivity() {
                     .show()
             }
         }
+
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    fun addBloc(type: String) {
+    fun addBloc(type: String, wasLoaded: Int) {
         val rootLayout = findViewById<FrameLayout>(R.id.root)
         val icon = ImageView(this).apply {
 
@@ -314,14 +347,15 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
             }
         }
+
         if ((stop && type == "koniec") || (start && type == "start")) {
             Toast.makeText(
                 this,
                 "Może istnieć tylko jeden bloczek start i stop!",
                 Toast.LENGTH_SHORT
             ).show()
-        } else {
-
+        }
+        else {
             if (type == "start") {
                 start = true
             }
@@ -343,55 +377,69 @@ class MainActivity : AppCompatActivity() {
                 var action: String
                 var userInput: String
 
-                val builder = AlertDialog.Builder(this)
-                val inflater = layoutInflater
-                val dialogLayout = inflater.inflate(R.layout.custom_dialog, null)
+                // Warunek sprawdzający, czy blok został załadowany czy stworzony
+                if (wasLoaded == 0) {
+                    val builder = AlertDialog.Builder(this)
+                    val inflater = layoutInflater
+                    val dialogLayout = inflater.inflate(R.layout.custom_dialog, null)
 
-                val userInputField = dialogLayout.findViewById<EditText>(R.id.values)
-                val submitButton = dialogLayout.findViewById<Button>(R.id.submit_button)
-                val spinner = dialogLayout.findViewById<Spinner>(R.id.spinnerOptions)
-                val options = listOf("Read", "Write")
-                val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                spinner.adapter = adapter
+                    val userInputField = dialogLayout.findViewById<EditText>(R.id.values)
+                    val submitButton = dialogLayout.findViewById<Button>(R.id.submit_button)
+                    val spinner = dialogLayout.findViewById<Spinner>(R.id.spinnerOptions)
+                    val options = listOf("Read", "Write")
+                    val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options)
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    spinner.adapter = adapter
 
-                builder.setView(dialogLayout)
-                builder.setCancelable(false)
+                    builder.setView(dialogLayout)
+                    builder.setCancelable(false)
 
-                val dialog = builder.create()
+                    val dialog = builder.create()
 
-                submitButton.setOnClickListener {
-                    userInput =
-                        userInputField.text.toString() //wymagane wpisanie w formacie a,b,c,d
-                    action = spinner.selectedItem.toString()
-                    if (userInput == "") {
-                        Toast.makeText(this, "Puste pole!", Toast.LENGTH_LONG).show()
-                    } else {
-                        dialog.dismiss()
+                    submitButton.setOnClickListener {
+                        userInput =
+                            userInputField.text.toString() // wymagane wpisanie w formacie a,b,c,d
+                        action = spinner.selectedItem.toString()
+                        if (userInput == "") {
+                            Toast.makeText(this, "Puste pole!", Toast.LENGTH_LONG).show()
+                        } else {
+                            dialog.dismiss()
 
-                        val values = TextView(this).apply {
-                            layoutParams = FrameLayout.LayoutParams(
-                                FrameLayout.LayoutParams.WRAP_CONTENT,
-                                FrameLayout.LayoutParams.WRAP_CONTENT
-                            ).apply {
-                                gravity = Gravity.CENTER
+                            val values = TextView(this).apply {
+                                layoutParams = FrameLayout.LayoutParams(
+                                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                                    FrameLayout.LayoutParams.WRAP_CONTENT
+                                ).apply {
+                                    gravity = Gravity.CENTER
+                                }
+                                text = "$action $userInput"
+                                textSize = 16f
                             }
-                            text = "$action $userInput"
-                            textSize = 16f
-                        }
 
-                        iconWithText.addView(values)
-                        val bloc = InputBlock(iconWithText, type, action, userInput)
-                        rootLayout.addView(bloc.getImage())// Dodanie bloku do widoku
-                        activeBlocks.add(bloc)
-                        bloc.getImage().setOnTouchListener(DraggableItem())
+                            iconWithText.addView(values)
+                            val bloc = InputBlock(iconWithText, type, action, userInput)
+                            bloc.setInputType(action)
+                            rootLayout.addView(bloc.getImage()) // Dodanie bloku do widoku
+                            activeBlocks.add(bloc)
+                            bloc.getImage().setOnTouchListener(DraggableItem())
 
-                        bloc.getImage().setOnClickListener {
-                            selectBlock(bloc)
+                            bloc.getImage().setOnClickListener {
+                                selectBlock(bloc)
+                            }
                         }
                     }
+                    dialog.show()
+                } else {
+                    // Jeśli blok został wczytany, nie wywołujemy dialogu
+                    val bloc = InputBlock(iconWithText, type, "", "")
+                    rootLayout.addView(bloc.getImage()) // Dodanie bloku do widoku
+                    activeBlocks.add(bloc)
+                    bloc.getImage().setOnTouchListener(DraggableItem())
+
+                    bloc.getImage().setOnClickListener {
+                        selectBlock(bloc)
+                    }
                 }
-                dialog.show()
             } else {
                 when (type) {
                     "operacja" -> {
@@ -452,7 +500,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
 
     private suspend fun showInputDialog(zmienna: String, block: InputBlock): String? =
         suspendCancellableCoroutine { continuation ->
@@ -1013,6 +1060,7 @@ class MainActivity : AppCompatActivity() {
             val value2 = operationBlock.getSecondValue()
             val value3 = operationBlock.getThirdValue()
             val action = operationBlock.getAction()
+            Log.d("test","1:${value1} 2:${value2} 3:${value3} action:${action}")
 
             if (action != null) {
                 if (value1.contains("[")) {
@@ -1291,7 +1339,7 @@ class MainActivity : AppCompatActivity() {
             val y = n2 ?: variableMap[value2] ?: value2.toDoubleOrNull() ?: value2
             var result: Boolean
 
-            result = comparison(x, y, action)
+            result = comparison(x, y, action.toString())
             block.getImage().setBackgroundColor(Color.TRANSPARENT)
 
             currentResult = result
@@ -1309,5 +1357,425 @@ class MainActivity : AppCompatActivity() {
         }
       return null
     }
+
+    fun showSaveDialog() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            type = "application/octet-stream"  // Typ pliku binarnego
+            putExtra(Intent.EXTRA_TITLE, "diagram.blk")  // Ustaw nazwę pliku
+        }
+        createDocumentLauncher.launch("diagram.blk")  // Uruchamiamy dialog zapisu, przekazując tylko nazwę pliku
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_READ_FILE && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { uri ->
+                // Logowanie URI (aby upewnić się, że plik jest prawidłowy)
+                Log.d("FileURI", "URI pliku: $uri")
+
+                // Otwieramy strumień wejściowy
+                val inputStream = contentResolver.openInputStream(uri)
+                inputStream?.use {
+                    val jsonString = it.bufferedReader().use { reader -> reader.readText() }
+
+                    // Logowanie zawartości pliku (pierwsze 100 znaków)
+                    Log.d("onActivityResult", "File content: ${jsonString.take(100)}")
+
+                    // Utworzenie obiektu BlockDiagramPersistence
+                    val blockDiagramPersistence = BlockDiagramPersistence()
+
+                    // Załadowanie bloków z pliku (przekazujemy URI, a nie ścieżkę)
+                    val (blocks, connectionsMap) = blockDiagramPersistence.loadFromFile(uri, this)
+                        ?: return@let
+
+
+                    if (blocks.isEmpty() || connectionsMap.isEmpty()) {
+                        // Jeśli loadFromFile zwróciło pustą listę, wyświetlamy komunikat o błędzie
+                        Toast.makeText(this, "Błąd wczytywania pliku. Proszę spróbować ponownie.", Toast.LENGTH_LONG).show()
+                    } else {
+                        Log.d("onActivityResult", "LoadFromFile nie zwróciło null: ${blocks} ${connectionsMap}")
+                        // Jeśli dane zostały załadowane, dodajemy bloki do UI
+                        //val rootLayout = findViewById<FrameLayout>(R.id.root) // Przykład kontenera na bloki
+                        //rootLayout.removeAllViews() // Usuwamy poprzednie widoki (jeśli jakieś były)
+
+                        //Dodawanie wczytanych bloczków------------------------------------------------------------------------------------------
+
+                        blocks.forEach { block ->
+                            addBloc(block.getType(), 1)
+                        }
+
+                        // 1. Tworzymy mapę starego ID do nowego ID
+                        val oldToNewIdMap = mutableMapOf<Int, Int>()
+
+                        // Listy starych i nowych ID dla debugowania
+                        val oldBlocksInfo = blocks.map { "ID: ${it.getId()}, Typ: ${it.getType()}" }
+                        val newBlocksInfo = activeBlocks.map { "ID: ${it.getId()}, Typ: ${it.getType()}" }
+
+                        // Logowanie starych i nowych bloków (ID + typy)
+                        Log.d("onActivityResult", "Stare bloki: $oldBlocksInfo")
+                        Log.d("onActivityResult", "Nowe bloki: $newBlocksInfo")
+
+                        // Zakładając, że masz mapę starych bloków i nowych bloków, wypełniamy mapę oldToNewIdMap
+                        blocks.forEachIndexed { index, block ->
+                            val newBlock = activeBlocks[index] // Zmapuj nowy blok do odpowiedniego starego
+                            oldToNewIdMap[block.getId()] = newBlock.getId() // Stare ID -> Nowe ID
+                            //Log.d("onActivityResult", "Nowe połączenie ${oldToNewIdMap[block.getId()]}")
+                        }
+
+                        // Logowanie mapy przypisań (stare ID → nowe ID)
+                        Log.d("onActivityResult", "Mapa przypisań oldToNewIdMap: $oldToNewIdMap")
+
+                        // 2. Przekształcamy mapę połączeń, zmieniając stare ID na nowe ID
+                        val newConnectionsMap = mutableMapOf<Block, List<Block>>()
+
+                        connectionsMap.entries.forEach { entry ->
+                            val (oldBlock, connectedBlocks) = entry
+
+                            // Znajdź nowy blok odpowiadający staremu blokowi
+                            val newBlock = oldToNewIdMap[oldBlock.getId()]?.let { newId ->
+                                activeBlocks.firstOrNull { it.getId() == newId }
+                            }
+
+                            // Logowanie: mapowanie starego bloku na nowy
+                            Log.d("onActivityResult", "Przekształcam blok ID: ${oldBlock.getId()}, Typ: ${oldBlock.getType()} -> Nowy ID: ${newBlock?.getId()}, Typ: ${newBlock?.getType()}")
+
+                            newBlock?.let { block ->
+                                // Mapowanie połączeń z nowych ID
+                                val newConnectedBlocks = connectedBlocks.mapNotNull { connectedBlock ->
+                                    oldToNewIdMap[connectedBlock.getId()]?.let { newId ->
+                                        activeBlocks.firstOrNull { it.getId() == newId }
+                                    }
+                                }
+
+                                // Logowanie: połączenia dla bieżącego bloku
+                                connectedBlocks.forEach { connectedBlock ->
+                                    val newConnectedBlockId = oldToNewIdMap[connectedBlock.getId()]
+                                    Log.d("onActivityResult", "Połączenie z bloku ID: ${connectedBlock.getId()}, Typ: ${connectedBlock.getType()} -> Nowy ID: $newConnectedBlockId")
+                                }
+
+                                // Zapisz nowe połączenia w mapie
+                                newConnectionsMap[block] = newConnectedBlocks
+                            }
+                        }
+
+                        // 3. Zaktualizowanie blockTrue/blockFalse po przypisaniu nowych połączeń
+                        newConnectionsMap.forEach { (block, connectedBlocks) ->
+                            if (block is IfBlock) {
+                                // Znajdź odpowiadający stary blok
+                                val oldBlock = blocks.getOrNull(activeBlocks.indexOf(block)) as? IfBlock
+
+                                oldBlock?.let {
+                                    Log.d("onActivityResult", "Stare ID w oldToNewIdMap: $oldToNewIdMap")
+                                    Log.d("onActivityResult", "Stary blok If: ${oldBlock.getId()}")
+                                    Log.d("onActivityResult", "Stary blockTrue: ${oldBlock.getBlockTrue()?.getId()}")
+                                    Log.d("onActivityResult", "Stary blockFalse: ${oldBlock.getBlockFalse()?.getId()}")
+
+                                    // Znalezienie nowych ID dla blockTrue i blockFalse na podstawie starych ID
+                                    val newBlockTrueId = oldToNewIdMap[oldBlock.getBlockTrue()?.getId()]
+                                    val newBlockFalseId = oldToNewIdMap[oldBlock.getBlockFalse()?.getId()]
+
+                                    // Logowanie ID dla debugowania
+                                    Log.d("onActivityResult", "Szukam połączeń dla bloku If: ${block.getId()}")
+                                    Log.d("onActivityResult", "Połączenie true ID: $newBlockTrueId")
+                                    Log.d("onActivityResult", "Połączenie false ID: $newBlockFalseId")
+
+                                    // Szukamy nowych bloków na podstawie nowych ID
+                                    val newTrueBlock = activeBlocks.firstOrNull { it.getId() == newBlockTrueId }
+                                    val newFalseBlock = activeBlocks.firstOrNull { it.getId() == newBlockFalseId }
+
+                                    // Przypisanie nowych bloków do blockTrue i blockFalse
+                                    newTrueBlock?.let { block.setBlockTrue(it) }
+                                    newFalseBlock?.let { block.setBlockFalse(it) }
+
+                                    Log.d("warunek", "Block ${block.getType()} łączy się z true: ${block.getBlockTrue()?.getId()} i false: ${block.getBlockFalse()?.getId()}")
+                                }
+                            }
+                        }
+
+                        // Iterujemy przez mapę połączeń (newConnectionsMap)
+                        newConnectionsMap.forEach { (block, connectedBlocks) ->
+                            // Ustawiamy previousBlock i nextBlock
+                            if (connectedBlocks.isNotEmpty()) {
+                                // Zakładamy, że blok może mieć tylko jeden poprzedni i jeden następny blok
+                                block.setPreviousBlock(connectedBlocks.first())  // poprzedni blok
+                                if(block.getType()!="warunek") {
+                                    block.setNextBlock(connectedBlocks.last())  // następny blok
+                                }
+                            }
+
+                            // Dla IfBlock ustawiamy blockTrue i blockFalse
+                            /*if (block is IfBlock) {
+                                // Szukamy połączeń typu "true" i "false" (dla bloczków IfBlock)
+                                connectedBlocks.forEach { connectedBlock ->
+                                    if (connectedBlock is IfBlock) {
+                                        // Jeżeli blok ma połączenie typu true
+                                        block.setBlockTrue(connectedBlock.getBlockTrue()) // Ustawiamy blockTrue
+                                        // Jeżeli blok ma połączenie typu false
+                                        block.setBlockFalse(connectedBlock.getBlockFalse()) // Ustawiamy blockFalse
+                                    }
+                                }
+                            }*/
+                            Log.d("onActivityResult", "Blok: ${block.getType()} ${block.getId()} połączony jest z ${block.getNextBlock()?.getId()} i z ${block.getPreviousBlock()?.getId()}")
+                            if(block.getType()=="warunek") {
+                                block as IfBlock
+                                Log.d("warunek", "Block ${block.getType()} łączy się z true: ${block.getBlockTrue()?.getId()} i false: ${block.getBlockFalse()?.getId()}")
+                            }
+                        }
+
+                        blocks.forEachIndexed { index, block ->
+                            val newBlock = activeBlocks.getOrNull(index)
+
+                            println("Typ klasy block: ${block::class.java.simpleName}")
+                            println("Typ klasy newBlock: ${newBlock?.javaClass?.simpleName ?: "null"}")
+                            println("newID: ${block.getId()}, oldID ${newBlock?.getId()}")
+
+                            when (block) {
+                                is IfBlock -> {
+                                    if (newBlock is IfBlock) {
+                                        newBlock.setFirstValue(block.getFirstValue().takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setSecondValue(block.getSecondValue().takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setAction(block.getAction().takeIf { it != null } ?: "")
+                                        //newBlock.setBlockTrue(block.getBlockTrue())
+                                        //newBlock.setBlockFalse(block.getBlockFalse())
+
+                                        println("Po przeniesieniu danych: ${newBlock.getFirstValue()}, ${newBlock.getSecondValue()}, ${newBlock.getAction()}")
+
+
+                                        val values = TextView(this).apply {
+                                            layoutParams = FrameLayout.LayoutParams(
+                                                FrameLayout.LayoutParams.WRAP_CONTENT,
+                                                FrameLayout.LayoutParams.WRAP_CONTENT
+                                            ).apply {
+                                                gravity = Gravity.CENTER
+                                            }
+                                            text = "${newBlock.getFirstValue()} ${newBlock.getAction()} ${newBlock.getSecondValue()}"
+                                            textSize = 16f
+                                        }
+
+                                        newBlock.getImage().addView(values)
+
+                                        Log.d("warunek", "Block ${newBlock.getType()} łączy się z true: ${newBlock.getBlockTrue()?.getId()} i false: ${newBlock.getBlockFalse()?.getId()}")
+                                    }
+                                }
+
+                                is OperationBlock -> {
+                                    if (newBlock is OperationBlock) {
+                                        newBlock.setFirstValue(block.getFirstValue().takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setSecondValue(block.getSecondValue().takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setThirdValue(block.getThirdValue()?.takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setAction(block.getAction().takeIf { it != null } ?: "")
+
+                                        println("Po przeniesieniu danych: ${newBlock.getFirstValue()}, ${newBlock.getSecondValue()}, ${newBlock.getThirdValue()}, ${newBlock.getAction()}")
+
+
+
+                                        if(newBlock.getAction()==null){ //zmienna = zmienna
+                                            val values = TextView(this).apply {
+                                                layoutParams = FrameLayout.LayoutParams(
+                                                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                                                    FrameLayout.LayoutParams.WRAP_CONTENT
+                                                ).apply {
+                                                    gravity = Gravity.CENTER
+                                                }
+                                                text = "${newBlock.getFirstValue()} = ${newBlock.getSecondValue()}"
+                                                textSize = 16f
+                                            }
+                                            newBlock.getImage().addView(values)
+                                        }else{ // zmienna = zmienna + zmienna
+                                            val values = TextView(this).apply {
+                                                layoutParams = FrameLayout.LayoutParams(
+                                                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                                                    FrameLayout.LayoutParams.WRAP_CONTENT
+                                                ).apply {
+                                                    gravity = Gravity.CENTER
+                                                }
+                                                text = "${newBlock.getFirstValue()} = ${newBlock.getSecondValue()} ${newBlock.getAction()} ${newBlock.getThirdValue()}"
+                                                textSize = 16f
+                                            }
+                                            newBlock.getImage().addView(values)
+                                        }
+                                    }
+                                }
+
+                                is InputBlock -> {
+                                    if (newBlock is InputBlock) {
+                                        println("Przed przeniesieniem danych: ${block.getInputType()}, ${block.getUserInput()}")
+
+                                        newBlock.setInputType(block.getInputType().takeIf { it.isNotEmpty() } ?: "")
+                                        newBlock.setUserInput(block.getUserInput().takeIf { it != null } ?: "")
+                                        println("Po przeniesieniu danych: ${newBlock.getInputType()}, ${newBlock.getUserInput()}")
+
+                                        val values = TextView(this).apply {
+                                            layoutParams = FrameLayout.LayoutParams(
+                                                FrameLayout.LayoutParams.WRAP_CONTENT,
+                                                FrameLayout.LayoutParams.WRAP_CONTENT
+                                            ).apply {
+                                                gravity = Gravity.CENTER
+                                            }
+                                            text = "${newBlock.getInputType()} ${newBlock.getUserInput()}"
+                                            textSize = 16f
+                                        }
+                                        newBlock.getImage().addView(values)
+
+                                        println("Zawartość TextView: ${values.text}")
+                                    }
+                                }
+
+                                else -> {
+                                    // Obsługuje inne typy bloków, jeśli są
+                                    println("Inny typ bloku: ${block::class.java.simpleName}")
+                                }
+                            }
+                        }
+
+                        (blocks as MutableList<Block>).clear()
+
+
+
+                    }
+                }
+
+                inputStream?.close()
+
+                // Przywróć połączenia między blokami
+                connectBlocks(activeBlocks)
+            }
+        }
+    }
+
+    fun connectBlocks(blocks: List<Block>) {
+        for (block in blocks) {
+            try {
+                // Sprawdzenie, czy blok jest typu IfBlock
+                if (block is IfBlock) {
+                    Log.d("connectBlocks","True: ${block.getBlockTrue()?.getType()} ${block.getBlockTrue()?.getId()} False: ${block.getBlockFalse()?.getType()} ${block.getBlockFalse()?.getId()}")
+                    // Połączenie z trueBlock, jeśli jest ustawione
+                    block.getBlockTrue()?.let { trueBlock ->
+                        createConnection(block, trueBlock)
+                        println("Connected ${block.getId()} (TRUE) -> ${trueBlock.getId()}")
+                    }
+
+                    // Połączenie z falseBlock, jeśli jest ustawione
+                    block.getBlockFalse()?.let { falseBlock ->
+                        createConnection(block, falseBlock)
+                        println("Connected ${block.getId()} (FALSE) -> ${falseBlock.getId()}")
+                    }
+                }
+                else if(block.getType()!="koniec"){
+                    // Połączenie z nextBlock, jeśli jest ustawione
+                    block.getNextBlock()?.let { nextBlock ->
+                        createConnection(block, nextBlock)
+                        println("Connected ${block.getId()} -> ${nextBlock.getId()}")
+                    }
+                }
+                else{
+                    block.setNextBlock(null)
+                }
+            } catch (e: Exception) {
+                println("Failed to connect block ${block.getId()}: ${e.message}")
+            }
+        }
+    }
+
+    fun createConnection(block1: Block, block2: Block) {
+        try {
+            // Tworzenie nowej linii wizualnej
+            val line = LineView(this) // `context` musi być dostępny w Twojej klasie
+
+            // Obsługa IfBlock
+            if (block1 is IfBlock) {
+                if (block1.getBlockTrue() == block2) {
+                    line.colorGreen()
+                    block1.setBlockTrue(block2)
+                    block1.setLineTrue(line)
+                } else if (block1.getBlockFalse() == block2) {
+                    line.colorRed()
+                    block1.setBlockFalse(block2)
+                    block1.setLineFalse(line)
+                }
+            } else {
+                // Ustawienie następnego bloku w przypadku zwykłych bloków
+                block1.setNextBlock(block2)
+                block2.setPreviousBlock(block1)
+            }
+
+            // Dodanie linii do układu (jeśli dotyczy)
+            rootLayout.addView(line)
+
+            // Powiązanie linii z blokami
+            line.setStartBlock(block1)
+            line.setEndBlock(block2)
+            block1.addLine(line)
+            block2.addLine(line)
+
+            // Ustawienie punktów linii
+            line.setLinePoints(
+                block1.getImage().x + block1.getImage().width / 2,
+                block1.getImage().y + block1.getImage().height / 6 * 5,
+                block2.getImage().x + block2.getImage().width / 2,
+                block2.getImage().y + block2.getImage().height / 6
+            )
+
+            // Powiązanie przeciągania linii z blokami
+            val draggable1 = DraggableBloc().apply {
+                setBlock(block1)
+                setLine(line)
+            }
+            val draggable2 = DraggableBloc().apply {
+                setBlock(block2)
+                setLine(line)
+            }
+            block1.getImage().setOnTouchListener(draggable1)
+            block2.getImage().setOnTouchListener(draggable2)
+
+            println("Connection created: ${block1.getId()} -> ${block2.getId()}")
+        } catch (e: Exception) {
+            println("Failed to create connection: ${e.message}")
+        }
+    }
+
+    fun showOpenDialog() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            // Ustawiamy typ MIME dla plików .blk
+            type = "application/octet-stream" // Możesz użyć ogólnego typu
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        startActivityForResult(intent, REQUEST_READ_FILE)
+    }
+
+    fun clearWorkspace() {
+        // 1. Usuwamy wszystkie linie (połączenia) i bloki
+        activeBlocks.forEach { block ->
+            for (line in block.getLine()) {
+                // Usuwamy połączenia
+                if (line.startBloc == block) {
+                    line.endBloc.connectedLines.remove(line)
+                } else {
+                    line.startBloc.connectedLines.remove(line)
+                }
+                rootLayout.removeView(line) // Usuwamy linię z widoku
+            }
+
+            // Usuwamy każdy blok z widoku
+            rootLayout.removeView(block.getImage())
+        }
+
+
+        // 2. Czyścimy listę aktywnych bloków
+        activeBlocks.clear()
+
+        // 3. Resetujemy zmienne związane z blokami startowymi i końcowymi
+        start = false
+        startBlock = null
+        stop = false
+        endBlock = null
+        selectedBlocks.clear()
+        Block.resetIdCounter()
+        ifBlocks.clear()
+    }
+
+
+
 }
 
