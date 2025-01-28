@@ -2,13 +2,17 @@ package com.example.sprytnebloczki
 
 import android.widget.FrameLayout
 
-class InputBlock(image: FrameLayout, type:String, private val action: String, private var values: String):
+class InputBlock(image: FrameLayout, type:String, private var action: String, private var values: String):
     Block(image, type) {
         private var inputType: String = ""
 
 
-    override fun getAction(): String? {
-        return super.getAction()
+    override fun getAction(): String {
+        return this.action
+    }
+
+    override fun setAction(action: String) {
+        this.action = action
     }
 
     fun getUserInput(): String{
@@ -27,7 +31,5 @@ class InputBlock(image: FrameLayout, type:String, private val action: String, pr
         this.inputType = type
     }
 
-    fun getInputTYpe(): String{
-        return this.inputType
-    }
+
 }

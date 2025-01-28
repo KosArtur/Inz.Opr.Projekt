@@ -313,6 +313,7 @@ class MainActivity : AppCompatActivity() {
                             temp.setBlockFalse(null)
                         }
                     }
+                    ifBlocks.remove(i)
                     rootLayout.removeView(i.getImage()) // Usunięcie z widoku
                     activeBlocks.remove(i) // Usunięcie z listy
 
@@ -1030,7 +1031,7 @@ class MainActivity : AppCompatActivity() {
                 //show dialog do wprowadzania
                 for (el in values) {
                     val userInput = showInputDialog(el, inputBlock)
-                    when (inputBlock.getInputTYpe()) {
+                    when (inputBlock.getInputType()) {
                         "Number" -> {
                             variableMap[el] = userInput?.toDouble()
                         }
@@ -1364,6 +1365,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(Intent.EXTRA_TITLE, "diagram.blk")  // Ustaw nazwę pliku
         }
         createDocumentLauncher.launch("diagram.blk")  // Uruchamiamy dialog zapisu, przekazując tylko nazwę pliku
+        //startActivityForResult(intent, REQUEST_SAVE_FILE)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -1395,9 +1397,6 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Błąd wczytywania pliku. Proszę spróbować ponownie.", Toast.LENGTH_LONG).show()
                     } else {
                         Log.d("onActivityResult", "LoadFromFile nie zwróciło null: ${blocks} ${connectionsMap}")
-                        // Jeśli dane zostały załadowane, dodajemy bloki do UI
-                        //val rootLayout = findViewById<FrameLayout>(R.id.root) // Przykład kontenera na bloki
-                        //rootLayout.removeAllViews() // Usuwamy poprzednie widoki (jeśli jakieś były)
 
                         //Dodawanie wczytanych bloczków------------------------------------------------------------------------------------------
 
@@ -1416,11 +1415,10 @@ class MainActivity : AppCompatActivity() {
                         Log.d("onActivityResult", "Stare bloki: $oldBlocksInfo")
                         Log.d("onActivityResult", "Nowe bloki: $newBlocksInfo")
 
-                        // Zakładając, że masz mapę starych bloków i nowych bloków, wypełniamy mapę oldToNewIdMap
+                        // Wypełniamy mapę oldToNewIdMap
                         blocks.forEachIndexed { index, block ->
                             val newBlock = activeBlocks[index] // Zmapuj nowy blok do odpowiedniego starego
                             oldToNewIdMap[block.getId()] = newBlock.getId() // Stare ID -> Nowe ID
-                            //Log.d("onActivityResult", "Nowe połączenie ${oldToNewIdMap[block.getId()]}")
                         }
 
                         // Logowanie mapy przypisań (stare ID → nowe ID)
@@ -1533,9 +1531,20 @@ class MainActivity : AppCompatActivity() {
                             when (block) {
                                 is IfBlock -> {
                                     if (newBlock is IfBlock) {
-                                        newBlock.setFirstValue(block.getFirstValue().takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setSecondValue(block.getSecondValue().takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setAction(block.getAction().takeIf { it != null } ?: "")
+                                        if(!(block.getFirstValue().isNullOrEmpty())) {
+                                            newBlock.setFirstValue(
+                                                block.getFirstValue().takeIf { it.isNotEmpty() }
+                                                    ?: "")
+                                        }
+                                        if(!(block.getSecondValue().isNullOrEmpty())) {
+                                            newBlock.setSecondValue(
+                                                block.getSecondValue().takeIf { it.isNotEmpty() }
+                                                    ?: "")
+                                        }
+                                        if(!(block.getAction().isNullOrEmpty())) {
+                                            newBlock.setAction(
+                                                block.getAction().takeIf { it != null } ?: "")
+                                        }
                                         //newBlock.setBlockTrue(block.getBlockTrue())
                                         //newBlock.setBlockFalse(block.getBlockFalse())
 
@@ -1561,10 +1570,26 @@ class MainActivity : AppCompatActivity() {
 
                                 is OperationBlock -> {
                                     if (newBlock is OperationBlock) {
-                                        newBlock.setFirstValue(block.getFirstValue().takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setSecondValue(block.getSecondValue().takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setThirdValue(block.getThirdValue()?.takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setAction(block.getAction().takeIf { it != null } ?: "")
+                                        if(!(block.getFirstValue().isNullOrEmpty())) {
+                                            newBlock.setFirstValue(
+                                                block.getFirstValue().takeIf { it.isNotEmpty() }
+                                                    ?: "")
+                                        }
+                                        if(!(block.getSecondValue().isNullOrEmpty())) {
+                                            newBlock.setSecondValue(
+                                                block.getSecondValue().takeIf { it.isNotEmpty() }
+                                                    ?: "")
+                                        }
+                                        if(!(block.getThirdValue().isNullOrEmpty())) {
+                                            newBlock.setThirdValue(
+                                                block.getThirdValue()?.takeIf { it.isNotEmpty() }
+                                                    ?: "")
+                                        }
+                                        if(!(block.getAction().isNullOrEmpty())) {
+                                            //Log.d("test","${block.getAction()?.javaClass}")
+                                            newBlock.setAction(
+                                                block.getAction().takeIf { it != null } ?: "")
+                                        }
 
                                         println("Po przeniesieniu danych: ${newBlock.getFirstValue()}, ${newBlock.getSecondValue()}, ${newBlock.getThirdValue()}, ${newBlock.getAction()}")
 
@@ -1600,11 +1625,17 @@ class MainActivity : AppCompatActivity() {
 
                                 is InputBlock -> {
                                     if (newBlock is InputBlock) {
-                                        println("Przed przeniesieniem danych: ${block.getInputType()}, ${block.getUserInput()}")
-
-                                        newBlock.setInputType(block.getInputType().takeIf { it.isNotEmpty() } ?: "")
-                                        newBlock.setUserInput(block.getUserInput().takeIf { it != null } ?: "")
-                                        println("Po przeniesieniu danych: ${newBlock.getInputType()}, ${newBlock.getUserInput()}")
+                                        Log.d("input","Przed przeniesieniem danych: ${block.getAction()}, ${block.getUserInput()}")
+                                        if(!(block.getAction().isNullOrEmpty())) {
+                                            Log.d("input","Przed przeniesieniem danych: ${block.getAction()}, ${block.getUserInput()}")
+                                            newBlock.setAction(block.getAction())
+                                        }
+                                        Log.d("input","Po przeniesieniu danych: ${newBlock.getAction()}, ${newBlock.getUserInput()}")
+                                        if(!(block.getUserInput().isNullOrEmpty())) {
+                                            newBlock.setUserInput(
+                                                block.getUserInput().takeIf { it != null } ?: "")
+                                        }
+                                        Log.d("input","Po przeniesieniu danych: ${newBlock.getAction()}, ${newBlock.getUserInput()}")
 
                                         val values = TextView(this).apply {
                                             layoutParams = FrameLayout.LayoutParams(
@@ -1613,18 +1644,19 @@ class MainActivity : AppCompatActivity() {
                                             ).apply {
                                                 gravity = Gravity.CENTER
                                             }
-                                            text = "${newBlock.getInputType()} ${newBlock.getUserInput()}"
+                                            text = "${newBlock.getAction()} ${newBlock.getUserInput()}"
                                             textSize = 16f
                                         }
                                         newBlock.getImage().addView(values)
 
-                                        println("Zawartość TextView: ${values.text}")
+                                        Log.d("input","Zawartość TextView: ${values.text}")
                                     }
                                 }
 
                                 else -> {
                                     // Obsługuje inne typy bloków, jeśli są
-                                    println("Inny typ bloku: ${block::class.java.simpleName}")
+                                    instruction.visibility = View.GONE
+                                    //println("Inny typ bloku: ${block::class.java.simpleName}")
                                 }
                             }
                         }

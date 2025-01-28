@@ -18,10 +18,12 @@ class BlockDiagramPersistence {
 
     // Zapisuje diagram blokowy do pliku
     fun saveToFile(context: Context, blocks: List<Block>, uri: Uri) {
+
         try {
+            Log.d("save","test2")
             // Uzyskujemy OutputStream dla przekazanego URI
             val outputStream = context.contentResolver.openOutputStream(uri)
-
+            Log.d("save","test3")
             outputStream?.use { stream ->
                 // Mapujemy bloki na obiekty BlockWithConnections
                 val blocksWithConnections = blocks.map { block ->
@@ -38,8 +40,9 @@ class BlockDiagramPersistence {
                         secondValue = (block as? OperationBlock)?.getSecondValue(),
                         thirdValue = (block as? OperationBlock)?.getThirdValue(),
                         action = block.getAction(),
+                        InputAction = (block as? InputBlock)?.getAction(),
                         values = (block as? InputBlock)?.getUserInput(),
-                        inputType = (block as? InputBlock)?.getInputType(),
+                        //inputType = (block as? InputBlock)?.getInputType(),
                         ifFirstValue = (block as? IfBlock)?.getFirstValue(),
                         ifSecondValue = (block as? IfBlock)?.getSecondValue(),
                         ifAction = (block as? IfBlock)?.getAction(),
@@ -50,17 +53,18 @@ class BlockDiagramPersistence {
                     )
                 }
 
-                outputStream.close()
-
                 // Tworzymy strukturę JSON zgodną z poprzednią wersją
                 val json = gson.toJson(blocksWithConnections)
 
                 // Zapisujemy dane do OutputStream
                 stream.write(json.toByteArray())
                 Toast.makeText(context, "Plik zapisany pomyślnie", Toast.LENGTH_SHORT).show()
+
+                outputStream.close()
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            Log.d("save","$e")
             Toast.makeText(context, "Błąd zapisywania pliku", Toast.LENGTH_LONG).show()
         }
     }
@@ -92,6 +96,7 @@ class BlockDiagramPersistence {
             }
 
             // Mapowanie odczytanych danych na obiekty bloków
+            /*
             val blocks = blocksWithConnections.map { data ->
                 val block = createBlockFromData(data, context)
                 Log.d("BlockDiagramPersistence", "Utworzono blok: ${block.getId()} z danymi: $data")
@@ -119,7 +124,39 @@ class BlockDiagramPersistence {
                     }
                 }
             }
-            
+            */
+            // Mapowanie odczytanych danych na obiekty bloków
+            val fileIdToBlock = mutableMapOf<Int, Block>() // Mapa: ID z pliku -> Obiekt bloku
+            val blocks = blocksWithConnections.map { data ->
+                val block = createBlockFromData(data, context)
+                fileIdToBlock[data.id] = block // Przypisanie ID z pliku do nowego bloku
+                Log.d("BlockDiagramPersistence", "Utworzono blok: ${block.getId()} z danymi: $data")
+                block
+            }
+
+            // Mapa bloków według aktualnych ID (nowe ID)
+            val blockMap = blocks.associateBy { it.getId() } // Mapujemy bloki po ich nowych ID
+
+            // Przywracanie połączeń między blokami
+            val connectionsMap = mutableMapOf<Block, List<Block>>()
+
+            blocksWithConnections.forEach { data ->
+                val block = fileIdToBlock[data.id] // Znajdź blok w mapie po ID z pliku
+                val connectedBlocks = data.connectedBlocks.mapNotNull { id -> fileIdToBlock[id] } // Połączenia po ID z pliku
+                Log.d("BlockDiagramPersistence", "Blok ${data.id} ma ${connectedBlocks.size} połączeń.")
+                block?.let { connectionsMap[it] = connectedBlocks }
+
+                // Ustawiamy połączenia blockTrue i blockFalse po stworzeniu wszystkich bloków
+                if (block is IfBlock) {
+                    data.blockTrue?.let { trueBlockId ->
+                        block.setBlockTrue(fileIdToBlock[trueBlockId]) // Używamy mapy ID z pliku
+                    }
+                    data.blockFalse?.let { falseBlockId ->
+                        block.setBlockFalse(fileIdToBlock[falseBlockId]) // Używamy mapy ID z pliku
+                    }
+                }
+            }
+
             // Zwracamy bloki i mapę połączeń
             Pair(blocks, connectionsMap)
         } catch (e: Exception) {
@@ -162,7 +199,7 @@ class BlockDiagramPersistence {
                     action = data.action ?: "",
                     values = data.values ?: ""
                 )
-                block.setInputType(data.inputType ?: "" )
+                //block.setInputType(data.inputType ?: "" )
                 block.connectedLines = mutableListOf() // Inicjalizujemy listę połączeń
                 block
             }
@@ -191,8 +228,9 @@ data class BlockWithConnections(
     val secondValue: String?,        // Dla OperationBlock i IfBlock
     val thirdValue: String?,         // Dla OperationBlock
     val action: String?,             // Dla wszystkich bloków z polem action
+    val InputAction: String?,
     val values: String?,             // Dla InputBlock
-    val inputType: String?,          // Dla InputBlock
+    //val inputType: String?,          // Dla InputBlock
     val ifFirstValue: String?,       // Dla IfBlock
     val ifSecondValue: String?,      // Dla IfBlock
     val ifAction: String?,           // Dla IfBlock

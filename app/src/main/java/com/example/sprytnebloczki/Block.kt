@@ -57,7 +57,6 @@ open class Block(private val image:FrameLayout, private val type:String) {
         return this.nextBlock
     }
 
-
     open fun getAction(): String? {
         return this.action
     }
