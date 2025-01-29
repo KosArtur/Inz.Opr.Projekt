@@ -66,8 +66,10 @@ class MainActivity : AppCompatActivity() {
     private var currentResult:Boolean = false
     private var startBlock: Block? = null
     private var endBlock: Block? = null
-    private val blockDiagramPersistence = BlockDiagramPersistence()
-    private val blocksWithConnections = mutableMapOf<Block, List<Connection>>()
+    //private val blockDiagramPersistence = BlockDiagramPersistence()
+    //private val blocksWithConnections = mutableMapOf<Block, List<Connection>>()
+    private val loopBlocks = mutableListOf<Block>()
+    private val execOrder = mutableListOf<Block>()
 
     val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
         uri?.let {
@@ -232,6 +234,29 @@ class MainActivity : AppCompatActivity() {
         buttonOptions = findViewById(R.id.buttonOptions)
         buttonCode = findViewById(R.id.buttonCode)
 
+        /*
+        buttonCode.setOnClickListener{
+            loopBlocks.clear()
+            if(startBlock!=null) {
+                detectLoopIfBlocks(startBlock!!)
+                //Poniżej są funkcje testowe, po wykonaniu linii 140 zmienna loopBlocks powinna przechowywać wszystkie pętle
+                Log.d("Loop","Pętle: ${loopBlocks}")
+                loopBlocks.forEach { block ->
+                    Log.d("Loop", "ID: ${block.getId()}")
+                }
+                activeBlocks.forEach { block ->
+                    if (block.getType() == "warunek") {
+                        Log.d("Loop", "Warunek: ${block.getId()}")
+                    }
+                }
+            }
+            else{
+                Log.d("Loop","start = null")
+            }
+
+        }
+        */
+
         buttonOptions.setOnClickListener {
 
             val popupMenu = PopupMenu(this, buttonOptions, 0, 0, R.style.CustomPopupMenu)
@@ -242,6 +267,7 @@ class MainActivity : AppCompatActivity() {
                 when (item.itemId) {
                     R.id.action_newFile -> {
                         // nowy plik
+                        clearWorkspace()
 
                         true
                     }
@@ -314,6 +340,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     ifBlocks.remove(i)
+                    loopBlocks.remove(i)
                     rootLayout.removeView(i.getImage()) // Usunięcie z widoku
                     activeBlocks.remove(i) // Usunięcie z listy
 
@@ -1021,9 +1048,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun exec(block:Block): Block? {
-
         block.getImage().setBackgroundColor(Color.GREEN)
-        delay(3000)
+        delay(1500)
         if (block.getType() == "input") {
             val inputBlock = block as InputBlock
             val values = inputBlock.getUserInput().split(",")
@@ -1356,6 +1382,9 @@ class MainActivity : AppCompatActivity() {
             val b =block.getNextBlock()
             return exec(b!!)
         }
+      //Log.d("Run","${block.getType()} koniec")
+      Log.d("Run","Loops:${loopBlocks}")
+      execOrder.clear()
       return null
     }
 
@@ -1805,8 +1834,47 @@ class MainActivity : AppCompatActivity() {
         selectedBlocks.clear()
         Block.resetIdCounter()
         ifBlocks.clear()
+        loopBlocks.clear()
+        execOrder.clear()
     }
 
+    fun detectLoopIfBlocks(startBlock: Block) {
+        val visited = mutableSetOf<Block>() // Bloki już odwiedzone
+        val path = mutableListOf<Block>()   // Aktualna ścieżka
+
+        fun traverse(block: Block) {
+            if (block in path) {
+                // Pętla wykryta! Sprawdzamy, który IfBlock ją powoduje
+                val loopStartIndex = path.indexOf(block)
+                val loopPath = path.subList(loopStartIndex, path.size)
+                val responsibleIf = loopPath.filterIsInstance<IfBlock>().firstOrNull()
+
+                if (responsibleIf != null && responsibleIf !in loopBlocks) {
+                    loopBlocks.add(responsibleIf)
+                }
+                return
+            }
+
+            if (block in visited) return // Unikamy ponownego przetwarzania
+            visited.add(block)
+            path.add(block)
+
+            when (block.getType()) {
+                "warunek" -> {
+                    val ifBlock = block as IfBlock
+                    traverse(ifBlock.getBlockTrue()!!)
+                    traverse(ifBlock.getBlockFalse()!!)
+                }
+                "koniec" -> Unit // Koniec ścieżki
+                else -> block.getNextBlock()?.let { traverse(it) }
+            }
+
+            path.removeAt(path.size - 1)
+        }
+
+        traverse(startBlock)
+
+    }
 
 
 }
